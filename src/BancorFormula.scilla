@@ -1,0 +1,391 @@
+scilla_version 0
+
+import IntUtils ListUtils
+library BancorFormula
+
+let MIN_PRECISION = Uint256 32
+let MAX_PRECISION = Uint256 127
+let MAX_WEIGHT = Uint256 1000000
+let FIXED_1 = Uint256 170141183460469231731687303715884105728
+let FIXED_2 = Uint256 340282366920938463463374607431768211456
+let MAX_NUM = Uint256 680564733841876926926749214863536422912
+let OPT_LOG_MAX_VAL = Uint256 462491687273110168575455517921668397539
+let zero_uint128 = Uint128 0
+let zero_uint256 = Uint256 0
+
+let one_msg = 
+  fun (msg : Message) => 
+  let nil_msg = Nil {Message} in
+  Cons {Message} msg nil_msg
+
+type Error =
+| CodeInputIsZero
+| CodeInputNotInBounds
+
+let make_error =
+  fun (result : Error) =>
+    let result_code = 
+      match result with
+      | CodeInputIsZero => Int32 -1
+      | CodeInputNotInBounds => Int32 -2
+      end
+    in
+    { _exception : "Error"; code : result_code }
+
+(* implements (x * y) / z *)
+let muldiv: Uint256 -> Uint256 -> Uint256 -> Uint256 =
+    fun(x: Uint256) => fun(y: Uint256) => fun(z: Uint256) =>
+    let xy = builtin mul x y in
+    builtin div xy z
+
+(* implements ((x * (k - b)) / z ) + r *)
+let submuldivadd: Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 =
+    fun(x: Uint256) => fun(k: Uint256) => fun(b: Uint256) => fun(z: Uint256) => fun(r: Uint256) =>
+    let k_sub_b = builtin sub k b in
+    let tmp = muldiv x k_sub_b z in
+    builtin add tmp r
+
+(* used to panic, divides by zero! *)
+let panic: Uint256 -> Uint256 =
+    fun(numerator: Uint256) =>
+    builtin div zero_uint256 zero_uint256
+
+let uint128_to_uint256: Uint128 -> Uint256 =
+    fun (x: Uint128) =>
+    let ox256 = builtin to_uint256 x in
+    match ox256 with
+    | None =>
+        (* this never happens, hence we throw a division by zero exception just in case *)
+        panic zero_uint256
+    | Some x256 => x256
+    end
+let uint256_to_uint128: Uint256 -> Uint128 =
+    fun (x: Uint256) =>
+    let ores128 = builtin to_uint128 x in
+    match ores128 with
+    | None =>
+        (* this must never happen, panic by dividing by zero *)
+        panic zero_uint256
+    | Some res128 =>
+        res128
+    end
+
+(*
+    Return log(x / FIXED_1) * FIXED_1
+    Input range: FIXED_1 <= x <= LOG_EXP_MAX_VAL - 1
+    Detailed description:
+    - Rewrite the input as a product of natural exponents and a single residual r, such that 1 < r < 2
+    - The natural logarithm of each (pre-calculated) exponent is the degree of the exponent
+    - The natural logarithm of r is calculated via Taylor series for log(1 + x), where x = r - 1
+    - The natural logarithm of the input is calculated by summing up the intermediate results above
+    - For example: log(250) = log(e^4 * e^1 * e^0.5 * 1.021692859) = 4 + 1 + 0.5 + log(1 + 0.021692859)
+*)
+let optimalLog: Uint256 -> Uint256 =
+    fun(x: Uint256) =>
+    type ThresholdAndToAdd = | ThresholdAndToAdd of Uint256 Uint256 in
+    type XAndRes = | XAndRes of Uint256 Uint256 in
+    (* build the list for foldl *)
+    (* Auto-generated via # Generate optimal log part 1 .ipynb *)
+        let threshold_val0 = Uint256 280515388193368458015406427511040113880 in
+        let to_add0 = Uint256 85070591730234615865843651857942052864 in
+    let threshold0 = ThresholdAndToAdd threshold_val0 to_add0 in (*  add 1 / 2^1 *)
+        let threshold_val1 = Uint256 218465603988574474844591417643679820199 in
+        let to_add1 = Uint256 42535295865117307932921825928971026432 in
+    let threshold1 = ThresholdAndToAdd threshold_val1 to_add1 in (*  add 1 / 2^2 *)
+        let threshold_val2 = Uint256 192795218841189805222451540510555621025 in
+        let to_add2 = Uint256 21267647932558653966460912964485513216 in
+    let threshold2 = ThresholdAndToAdd threshold_val2 to_add2 in (*  add 1 / 2^3 *)
+        let threshold_val3 = Uint256 181114347027396448854165353426875372712 in
+        let to_add3 = Uint256 10633823966279326983230456482242756608 in
+    let threshold3 = ThresholdAndToAdd threshold_val3 to_add3 in (*  add 1 / 2^4 *)
+        let threshold_val4 = Uint256 175542044379434494067323265867529472979 in
+        let to_add4 = Uint256 5316911983139663491615228241121378304 in
+    let threshold4 = ThresholdAndToAdd threshold_val4 to_add4 in (*  add 1 / 2^5 *)
+        let threshold_val5 = Uint256 172820517236198538127967385733353125282 in
+        let to_add5 = Uint256 2658455991569831745807614120560689152 in
+    let threshold5 = ThresholdAndToAdd threshold_val5 to_add5 in (*  add 1 / 2^6 *)
+        let threshold_val6 = Uint256 171475617301169790829459146906809945753 in
+        let to_add6 = Uint256 1329227995784915872903807060280344576 in
+    let threshold6 = ThresholdAndToAdd threshold_val6 to_add6 in (*  add 1 / 2^7 *)
+        let threshold_val7 = Uint256 170807097224429000759274174605493073715 in
+        let to_add7 = Uint256 664613997892457936451903530140172288 in
+    let threshold7 = ThresholdAndToAdd threshold_val7 to_add7 in (*  add 1 / 2^8 *)
+
+    let nil = Nil {Int32} in
+    let l0 = Cons {ThresholdAndToAdd} threshold0 nil in
+    let l1 = Cons {ThresholdAndToAdd} threshold1 l0 in
+    let l2 = Cons {ThresholdAndToAdd} threshold2 l1 in
+    let l3 = Cons {ThresholdAndToAdd} threshold3 l2 in
+    let l4 = Cons {ThresholdAndToAdd} threshold4 l3 in
+    let l5 = Cons {ThresholdAndToAdd} threshold5 l4 in
+    let l6 = Cons {ThresholdAndToAdd} threshold6 l5 in
+    let l7 = Cons {ThresholdAndToAdd} threshold7 l6 in
+
+    let folder_stage_1 = fun(x_and_res: XAndRes) => fun(threshold_and_to_add: ThresholdAndToAdd) =>
+        match x_and_res with 
+        | XAndRes local_x local_res =>
+            match threshold_and_to_add with
+            | ThresholdAndToAdd threshold to_add =>
+                let x_ge = uint256_ge local_x threshold in
+                match x_ge with
+                | True =>
+                    let newRes = builtin add local_res to_add in
+                    let newX = muldiv local_x FIXED_1 threshold in
+                    XAndRes newX newRes
+                | False => XAndRes local_x local_res
+            end
+        end
+
+    let fold_stage_1 = @list_foldl ThresholdAndToAdd XAndRes in
+
+    let xAndResInit = XAndRes x zero_uint256 in
+
+    let stage_1_x_and_res = fold_stage_1 folder_stage_1 xAndResInit l7 in
+    match stage_1_x_and_res with
+    | XAndRes x_1 local_res_0 =>
+        (* now taylor series *)
+        (* Auto-generated via # Generate optimal log part 2 .ipynb *)
+        let y = builtin sub x_1 FIXED_1 in
+        let z0 = y in
+        let w = muldiv y y FIXED_1 in
+
+        (* ((x * (k - b)) / z ) + r *)
+            let numerator1 = Uint256 340282366920938463463374607431768211456 in
+            let denominator1 = Uint256 340282366920938463463374607431768211456 in
+        let local_res_1 = submuldivadd z0 numerator1 y denominator1 local_res_0 in let z1 = muldiv z0 w FIXED_1 in (* add y^01 / 01 - y^02 / 02 *)
+            let numerator2 = Uint256 226854911280625642308916404954512140970 in
+            let denominator2 = Uint256 680564733841876926926749214863536422912 in
+        let local_res_2 = submuldivadd z1 numerator2 y denominator2 local_res_1 in let z2 = muldiv z1 w FIXED_1 in (* add y^03 / 03 - y^04 / 04 *)
+            let numerator3 = Uint256 204169420152563078078024764459060926873 in
+            let denominator3 = Uint256 1020847100762815390390123822295304634368 in
+        let local_res_3 = submuldivadd z2 numerator3 y denominator3 local_res_2 in let z3 = muldiv z2 w FIXED_1 in (* add y^05 / 05 - y^06 / 06 *)
+            let numerator4 = Uint256 194447066811964836264785489961010406546 in
+            let denominator4 = Uint256 1361129467683753853853498429727072845824 in
+        let local_res_4 = submuldivadd z3 numerator4 y denominator4 local_res_3 in let z4 = muldiv z3 w FIXED_1 in (* add y^07 / 07 - y^08 / 08 *)
+            let numerator5 = Uint256 189045759400521368590763670795426784142 in
+            let denominator5 = Uint256 1701411834604692317316873037158841057280 in
+        let local_res_5 = submuldivadd z4 numerator5 y denominator5 local_res_4 in let z5 = muldiv z4 w FIXED_1 in (* add y^09 / 09 - y^10 / 10 *)
+            let numerator6 = Uint256 185608563775057343707295240417328115339 in
+            let denominator6 = Uint256 2041694201525630780780247644590609268736 in
+        let local_res_6 = submuldivadd z5 numerator6 y denominator6 local_res_5 in let z6 = muldiv z5 w FIXED_1 in (* add y^11 / 11 - y^12 / 12 *)
+            let numerator7 = Uint256 183228966803582249557201711694029036937 in
+            let denominator7 = Uint256 2381976568446569244243622252022377480192 in
+        let local_res_7 = submuldivadd z6 numerator7 y denominator7 local_res_6 in let z7 = muldiv z6 w FIXED_1 in (* add y^13 / 13 - y^14 / 14 *)
+            let numerator8 = Uint256 181483929024500513847133123963609712776 in
+            let denominator8 = Uint256 2722258935367507707706996859454145691648 in
+        let local_res_8 = submuldivadd z7 numerator8 y denominator8 local_res_7 in (* add y^15 / 15 - y^16 / 16 *)
+        (* done! *)
+        local_res_8
+    end
+
+(*
+    Compute the largest integer smaller than or equal to the binary logarithm of the input.
+*)
+let floorLog2: Uint256 -> Uint256 =
+    fun(_n: Uint256) =>
+
+function floorLog2(uint256 _n) internal pure returns (uint8) {
+    uint8 res = 0;
+
+    if (_n < 256) {
+        // At most 8 iterations
+        while (_n > 1) {
+            _n >>= 1;
+            res += 1;
+        }
+    }
+    else {
+        // Exactly 8 iterations
+        for (uint8 s = 128; s > 0; s >>= 1) {
+            if (_n >= (ONE << s)) {
+                _n >>= s;
+                res |= s;
+            }
+        }
+    }
+
+    return res;
+}
+(*
+    Compute log(x / FIXED_1) * FIXED_1.
+    This functions assumes that "x >= FIXED_1", because the output would be negative otherwise.
+*)
+let generalLog: Uint256 -> Uint256 =
+    fun(x: Uint256) =>
+    (* If x >= 2, then we compute the integer part of log2(x), which is larger than 0. *)
+    let x_ge_two = uint256_ge x FIXED_2 in
+    let res0 = match x_ge_two with
+        | True => 
+        | False => zero_uint256
+        end
+
+function generalLog(uint256 x) internal pure returns (uint256) {
+    uint256 res = 0;
+
+    // If x >= 2, then we compute the integer part of log2(x), which is larger than 0.
+    if (x >= FIXED_2) {
+        uint8 count = floorLog2(x / FIXED_1);
+        x >>= count; // now x < 2
+        res = count * FIXED_1;
+    }
+
+    // If x > 1, then we compute the fraction part of log2(x), which is larger than 0.
+    if (x > FIXED_1) {
+        for (uint8 i = MAX_PRECISION; i > 0; --i) {
+            x = (x * x) / FIXED_1; // now 1 < x < 4
+            if (x >= FIXED_2) {
+                x >>= 1; // now 1 < x < 2
+                res += ONE << (i - 1);
+            }
+        }
+    }
+
+    return res * LN2_NUMERATOR / LN2_DENOMINATOR;
+}
+
+(* implements both optimal log and general log to provide an abstraction layer for log *)
+let log: Uint256 -> Uint256 = 
+    fun(base: Uint256) =>
+    let can_do_optimal_log = uint256_lt base OPT_LOG_MAX_VAL in
+    match can_do_optimal_log with
+    | True => optimalLog base
+    | False => generalLog base
+    end
+
+(* @result is the result of the apply of the power function *)
+(* @precision is 2^numberOfBitsOfPrecision *)
+type PowerResultAndPrecision =
+| PowerResultAndPrecision of Uint256 Uint256
+
+(* this is used as a guard in the power function *)
+let panic_if_uint256_not_lt_uint256: Uint256 -> Uint256 -> Bool =
+    fun(i1: Uint256) => fun(i2: Uint256) =>
+    let is_less_than = uint256_lt i1 i2 in
+    let tmp = match is_less_than with | True => zero_uint256 | False => panic zero_uint256 end in
+    is_less_than
+
+(*
+    General Description:
+        Determine a value of precision.
+        Calculate an integer approximation of (_baseN / _baseD) ^ (_expN / _expD) * 2 ^ precision.
+        Return the result along with the precision used.
+
+    Detailed Description:
+        Instead of calculating "base ^ exp", we calculate "e ^ (log(base) * exp)".
+        The value of "log(base)" is represented with an integer slightly smaller than "log(base) * 2 ^ precision".
+        The larger "precision" is, the more accurately this value represents the real value.
+        However, the larger "precision" is, the more bits are required in order to store this value.
+        And the exponentiation function, which takes "x" and calculates "e ^ x", is limited to a maximum exponent (maximum value of "x").
+        This maximum exponent depends on the "precision" used, and it is given by "maxExpArray[precision] >> (MAX_PRECISION - precision)".
+        Hence we need to determine the highest precision which can be used for the given input, before calling the exponentiation function.
+        This allows us to compute "base ^ exp" with maximum accuracy and without exceeding 256 bits in any of the intermediate computations.
+        This functions assumes that "_expN < 2 ^ 256 / log(MAX_NUM - 1)", otherwise the multiplication should be replaced with a "safeMul".
+*)
+let power: Uint256 -> Uint256 -> Uint256 -> Uint256 -> PowerResultAndPrecision =
+    fun(_baseN: Uint256) => fun(_baseD: Uint256) => fun(_expN: Uint256) => fun(_expD: Uint256) =>
+    let is_smaller = panic_if_uint256_not_lt_uint256 _baseN MAX_NUM in
+    let base = muldiv _baseN FIXED_1 _baseD in
+    let baseLog = log base in
+    let baseLogTimesExp = muldiv baseLog _expN _expD in
+
+    if (baseLogTimesExp < OPT_EXP_MAX_VAL) {
+        return (optimalExp(baseLogTimesExp), MAX_PRECISION);
+    }
+    else {
+        uint8 precision = findPositionInMaxExpArray(baseLogTimesExp);
+        return (generalExp(baseLogTimesExp >> (MAX_PRECISION - precision), precision), precision);
+    }
+
+
+contract BancorFormula()
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure AssertNotZero(value: Uint256)
+    is_zero = builtin eq zero_uint256 value;
+    match is_zero with
+    | False => 
+    | True => e = CodeInputIsZero; ThrowError e
+    end
+end
+
+procedure AssertIsLE(i1: Uint256, i2: Uint256)
+    is_le = uint256_le i1 i2;
+    match is_le with
+    | False => e = CodeInputNotInBounds; ThrowError e
+    | True =>
+    end
+end
+
+procedure SendCalculatePurchaseReturnCallback(result: Uint128)
+    msg = let m = {
+        _tag: "CalculatePurchaseReturnCallback";
+        _recipient: _sender;
+        _amount: zero_uint128;
+        result: result
+    } in one_msg m;
+    send msg
+end
+(*
+    @dev given a token supply, connector balance, weight and a deposit amount (in the connector token),
+    calculates the return for a given conversion (in the main token)
+
+    Formula:
+    Return = _supply * ((1 + _deposit_amount / _connector_balance) ^ (_connector_weight / 1000000) - 1)
+
+    @param _supply              token total supply
+    @param _connector_balance    total connector balance
+    @param _connector_weight     connector weight, represented in ppm, 1-1000000
+    @param _deposit_amount       deposit amount, in connector token
+
+    @send purchase return amount
+    in form:
+    {
+        _tag: "CalculatePurchaseReturnCallback";
+        _recipient: _sender;
+        _amount: zero_uint128;
+        result: result
+    }
+*)
+transition CalculatePurchaseReturn(_supply: Uint128, _connector_balance: Uint128, _connector_weight: Uint128, _deposit_amount: Uint128)
+    (* convert uint128s to uint256s *)
+    supply = uint128_to_uint256 _supply;
+    connector_balance = uint128_to_uint256 _connector_balance;
+    connector_weight = uint128_to_uint256 _connector_weight;
+    deposit_amount = uint128_to_uint256 _deposit_amount;
+    (* validate input *)
+    AssertNotZero supply;
+    AssertNotZero connector_balance;
+    AssertNotZero connector_weight;
+    AssertIsLE connector_weight MAX_WEIGHT;
+    deposit_is_zero = builtin eq deposit_amount zero_uint256;
+    match deposit_is_zero with
+    | True =>
+        (* special case for 0 deposit amount *)
+        SendCalculatePurchaseReturnCallback zero_uint128
+    | False =>
+        connector_weight_is_max_weight = builtin eq connector_weight MAX_WEIGHT;
+        match connector_weight_is_max_weight with
+        | True =>
+            (* special case if the weight = 100% *)
+            supply_mul_deposit = builtin mul supply deposit_amount;
+            result_uint256 = builtin div supply_mul_deposit connector_balance;
+            result = uint256_to_uint128 result_uint256;
+            SendCalculatePurchaseReturnCallback result
+        | False =>
+            baseN = builtin add deposit_amount connector_balance;
+            power_result_and_precision = power baseN connector_balance connector_weight MAX_WEIGHT;
+            match power_result_and_precision with
+            | PowerResultAndPrecision power_result precision =>
+                supply_mul_power_result = builtin mul supply power_result;
+                tmp = builtin div supply_mul_power_result precision;
+                result_uint256 = builtin sub tmp supply;
+                result = uint256_to_uint128 result_uint256;
+                SendCalculatePurchaseReturnCallback result
+            end
+        end
+    end
+end
