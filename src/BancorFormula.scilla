@@ -42,6 +42,12 @@ let muldiv: Uint256 -> Uint256 -> Uint256 -> Uint256 =
     let xy = builtin mul x y in
     builtin div xy z
 
+(* implements (x*y)+z *)
+let muladd: Uint256 -> Uint256 -> Uint256 -> Uint256 =
+    fun(x: Uint256) => fun(y: Uint256) => fun(z: Uint256) =>
+    let xy = builtin mul x y in
+    builtin add xy z
+
 (* implements ((x * (k - b)) / z ) + r *)
 let submuldivadd: Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 =
     fun(x: Uint256) => fun(k: Uint256) => fun(b: Uint256) => fun(z: Uint256) => fun(r: Uint256) =>
@@ -320,6 +326,273 @@ let panic_if_uint256_not_lt_uint256: Uint256 -> Uint256 -> Bool =
     is_less_than
 
 (*
+    Return e ^ (x / FIXED_1) * FIXED_1
+    Input range: 0 <= x <= OPT_EXP_MAX_VAL - 1
+    Auto-generated via 'PrintFunctionOptimalExp.py'
+    Detailed description:
+    - Rewrite the input as a sum of binary exponents and a single residual r, as small as possible
+    - The exponentiation of each binary exponent is given (pre-calculated)
+    - The exponentiation of r is calculated via Taylor series for e^x, where x = r
+    - The exponentiation of the input is calculated by multiplying the intermediate results above
+    - For example: e^5.521692859 = e^(4 + 1 + 0.5 + 0.021692859) = e^4 * e^1 * e^0.5 * e^0.021692859
+*) 
+let optimalExp: Uint256 -> Uint256 = fun(x: Uint256) =>
+    let res1 = Uint256 0 in
+    let two_pow_minus_three = 21267647932558653966460912964485513216 in
+    let z1 = builtin rem x two_pow_minus_three in (* get the input modulo 2^(-3) *)
+    let y = z1 in
+    let z2 = muldiv z1 y FIXED_1 in let tmp2 = Uint256 1216451004088320000 in let res2 = muladd z2 tmp2 res1 in (* add y^2 * (20! / 2!) *)
+    let z3 = muldiv z2 y FIXED_1 in let tmp3 = Uint256 405483668029440000 in let res3 = muladd z3 tmp3 res2 in (* add y^3 * (20! / 3!) *)
+    let z4 = muldiv z3 y FIXED_1 in let tmp4 = Uint256 101370917007360000 in let res4 = muladd z4 tmp4 res3 in (* add y^4 * (20! / 4!) *)
+    let z5 = muldiv z4 y FIXED_1 in let tmp5 = Uint256 20274183401472000 in let res5 = muladd z5 tmp5 res4 in (* add y^5 * (20! / 5!) *)
+    let z6 = muldiv z5 y FIXED_1 in let tmp6 = Uint256 3379030566912000 in let res6 = muladd z6 tmp6 res5 in (* add y^6 * (20! / 6!) *)
+    let z7 = muldiv z6 y FIXED_1 in let tmp7 = Uint256 482718652416000 in let res7 = muladd z7 tmp7 res6 in (* add y^7 * (20! / 7!) *)
+    let z8 = muldiv z7 y FIXED_1 in let tmp8 = Uint256 60339831552000 in let res8 = muladd z8 tmp8 res7 in (* add y^8 * (20! / 8!) *)
+    let z9 = muldiv z8 y FIXED_1 in let tmp9 = Uint256 6704425728000 in let res9 = muladd z9 tmp9 res8 in (* add y^9 * (20! / 9!) *)
+    let z10 = muldiv z9 y FIXED_1 in let tmp10 = Uint256 670442572800 in let res10 = muladd z10 tmp10 res9 in (* add y^10 * (20! / 10!) *)
+    let z11 = muldiv z10 y FIXED_1 in let tmp11 = Uint256 60949324800 in let res11 = muladd z11 tmp11 res10 in (* add y^11 * (20! / 11!) *)
+    let z12 = muldiv z11 y FIXED_1 in let tmp12 = Uint256 5079110400 in let res12 = muladd z12 tmp12 res11 in (* add y^12 * (20! / 12!) *)
+    let z13 = muldiv z12 y FIXED_1 in let tmp13 = Uint256 390700800 in let res13 = muladd z13 tmp13 res12 in (* add y^13 * (20! / 13!) *)
+    let z14 = muldiv z13 y FIXED_1 in let tmp14 = Uint256 27907200 in let res14 = muladd z14 tmp14 res13 in (* add y^14 * (20! / 14!) *)
+    let z15 = muldiv z14 y FIXED_1 in let tmp15 = Uint256 1860480 in let res15 = muladd z15 tmp15 res14 in (* add y^15 * (20! / 15!) *)
+    let z16 = muldiv z15 y FIXED_1 in let tmp16 = Uint256 116280 in let res16 = muladd z16 tmp16 res15 in (* add y^16 * (20! / 16!) *)
+    let z17 = muldiv z16 y FIXED_1 in let tmp17 = Uint256 6840 in let res17 = muladd z17 tmp17 res16 in (* add y^17 * (20! / 17!) *)
+    let z18 = muldiv z17 y FIXED_1 in let tmp18 = Uint256 380 in let res18 = muladd z18 tmp18 res17 in (* add y^18 * (20! / 18!) *)
+    let z19 = muldiv z18 y FIXED_1 in let tmp19 = Uint256 20 in let res19 = muladd z19 tmp19 res18 in (* add y^19 * (20! / 19!) *)
+    let z20 = muldiv z19 y FIXED_1 in let tmp20 = Uint256 1 in let res20 = muladd z20 tmp20 res19 in (* add y^20 * (20! / 20!) *)
+    let y_add_fixed_1 = builtin add y FIXED_1 in
+    let fac20 = Uint256 2432902008176640000 in
+    let res_div_fac_20 = builtin div res20 fac20 in
+    let res21 = builtin add res_div_fac_20 y_add_fixed_1 in (*  divide by 20! and then add y^1 / 1! + y^0 / 0 *)
+    
+    (* ex:  if ((x & 0x010000000000000000000000000000000) != 0) res = res * 0x1c3d6a24ed82218787d624d3e5eba95f9 / 0x18ebef9eac820ae8682b9793ac6d1e776;  *)
+    let if_contains_muldiv: Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 =
+    fun(local_x: Uint256) => fun(bits: Uint256) => fun(res: Uint256) => fun(numerator: Uint256) => fun(denominator: Uint256) =>
+    let one = Uint256 1 in
+    let bits_plus_one = builtin add bits one in 
+    let x_mod_condition = builtin rem local_x bits_plus_one in
+    let two_pow_bits = builtin pow two_uint256 bits in
+    let modded_div_bits = builtin div x_mod_condition two_pow_bits in
+    let x_not_contains = builtin eq zero_uint256 modded_div_bits in
+    match x_not_contains with
+    | True => res
+    | False => muldiv res numerator denominator
+    end in
+    
+    (* if bit 124 set then multiply by e^2^(-3)*)
+    let res22 = let bits = Uint256 124 in let numerator = Uint256 5103246950987213 in let denominator = Uint256 4503599627370496 in if_contains_muldiv x bits res21 numerator denominator in
+    (* if bit 125 set then multiply by e^2^(-2)*)
+    let res23 = let bits = Uint256 125 in let numerator = Uint256 2891368194064579 in let denominator = Uint256 2251799813685248 in if_contains_muldiv x bits res22 numerator denominator in
+    (* if bit 126 set then multiply by e^2^(-1)*)
+    let res24 = let bits = Uint256 126 in let numerator = Uint256 1856295125090727 in let denominator = Uint256 1125899906842624 in if_contains_muldiv x bits res23 numerator denominator in
+    (* if bit 127 set then multiply by e^2^(0)*)
+    let res25 = let bits = Uint256 127 in let numerator = Uint256 6121026514868073 in let denominator = Uint256 2251799813685248 in if_contains_muldiv x bits res24 numerator denominator in
+    (* if bit 128 set then multiply by e^2^(1)*)
+    let res26 = let bits = Uint256 128 in let numerator = Uint256 8319337573440941 in let denominator = Uint256 1125899906842624 in if_contains_muldiv x bits res25 numerator denominator in
+    (* if bit 129 set then multiply by e^2^(2)*)
+    let res27 = let bits = Uint256 129 in let numerator = Uint256 7684006504512087 in let denominator = Uint256 140737488355328 in if_contains_muldiv x bits res26 numerator denominator in
+    (* if bit 130 set then multiply by e^2^(3)*)
+    let res28 = let bits = Uint256 130 in let numerator = Uint256 6555195937328235 in let denominator = Uint256 2199023255552 in if_contains_muldiv x bits res27 numerator denominator in
+    res28
+
+
+(*
+    The "maxExpArray" is sorted in descending order, and therefore the following statements are equivalent:
+    - This function finds the position of [the smallest value in "maxExpArray" larger than or equal to "x"]
+    - This function finds the highest position of [a value in "maxExpArray" larger than or equal to "x"]
+*)
+let findPositionInMaxExpArray: Uint256 -> Uint256 = fun(x: Uint256) =>
+type PrecisionAndMax = | PrecisionAndMax of Uint256 Uint256 in
+let res31 = PrecisionAndMax 0 0 in
+let setNewIfXSmaller: PrecisionAndMax -> Uint256 -> Uint256 -> PrecisionAndMax =
+ fun(prev: PrecisionAndMax) => fun(arrIndex: Uint256) => fun(val: Uint256) =>
+ let x_lt_val = uint256_lt x val in
+ match x_lt_val with | True => PrecisionAndMax arrIndex val | False => prev end in
+	let res32 = let arrIndex = Uint256 32 in let val = Uint256 9599678685041259184274752310158947254271 in setNewIfXSmaller res31 arrIndex val in
+	let res33 = let arrIndex = Uint256 33 in let val = Uint256 9204759687141885226475603015507577405439 in setNewIfXSmaller res32 arrIndex val in
+	let res34 = let arrIndex = Uint256 34 in let val = Uint256 8826087172077985712041017634911355404287 in setNewIfXSmaller res33 arrIndex val in
+	let res35 = let arrIndex = Uint256 35 in let val = Uint256 8462992779488582574159642900919291478015 in setNewIfXSmaller res34 arrIndex val in
+	let res36 = let arrIndex = Uint256 36 in let val = Uint256 8114835644520100661580084966409403105279 in setNewIfXSmaller res35 arrIndex val in
+	let res37 = let arrIndex = Uint256 37 in let val = Uint256 7781001266736647064069662172832600162303 in setNewIfXSmaller res36 arrIndex val in
+	let res38 = let arrIndex = Uint256 38 in let val = Uint256 7460900425488323202194551465008353509375 in setNewIfXSmaller res37 arrIndex val in
+	let res39 = let arrIndex = Uint256 39 in let val = Uint256 7153968139937914349310206877837545177087 in setNewIfXSmaller res38 arrIndex val in
+	let res40 = let arrIndex = Uint256 40 in let val = Uint256 6859662671868001546166128217910528704511 in setNewIfXSmaller res39 arrIndex val in
+	let res41 = let arrIndex = Uint256 41 in let val = Uint256 6577464569506365633454696454958677491711 in setNewIfXSmaller res40 arrIndex val in
+	let res42 = let arrIndex = Uint256 42 in let val = Uint256 6306875750689218484600399768107450630143 in setNewIfXSmaller res41 arrIndex val in
+	let res43 = let arrIndex = Uint256 43 in let val = Uint256 6047418623741353042663269283551730728959 in setNewIfXSmaller res42 arrIndex val in
+	let res44 = let arrIndex = Uint256 44 in let val = Uint256 5798635244522972732941736303310812479487 in setNewIfXSmaller res43 arrIndex val in
+	let res45 = let arrIndex = Uint256 45 in let val = Uint256 5560086508154074440893281558760167309311 in setNewIfXSmaller res44 arrIndex val in
+	let res46 = let arrIndex = Uint256 46 in let val = Uint256 5331351373990447379730864460340651884543 in setNewIfXSmaller res45 arrIndex val in
+	let res47 = let arrIndex = Uint256 47 in let val = Uint256 5112026122483163422598731111238626967551 in setNewIfXSmaller res46 arrIndex val in
+	let res48 = let arrIndex = Uint256 48 in let val = Uint256 4901723642609993464238960471454494228479 in setNewIfXSmaller res47 arrIndex val in
+	let res49 = let arrIndex = Uint256 49 in let val = Uint256 4700072748620998500994433661760029327359 in setNewIfXSmaller res48 arrIndex val in
+	let res50 = let arrIndex = Uint256 50 in let val = Uint256 4506717524892375150236886652795301658623 in setNewIfXSmaller res49 arrIndex val in
+	let res51 = let arrIndex = Uint256 51 in let val = Uint256 4321316697732212547034601541953113817087 in setNewIfXSmaller res50 arrIndex val in
+	let res52 = let arrIndex = Uint256 52 in let val = Uint256 4143543033029384782309349805264440655871 in setNewIfXSmaller res51 arrIndex val in
+	let res53 = let arrIndex = Uint256 53 in let val = Uint256 3973082758682431363936722477132055314431 in setNewIfXSmaller res52 arrIndex val in
+	let res54 = let arrIndex = Uint256 54 in let val = Uint256 3809635010789003168527049097368437784575 in setNewIfXSmaller res53 arrIndex val in
+	let res55 = let arrIndex = Uint256 55 in let val = Uint256 3652911302618395401280222488042819026943 in setNewIfXSmaller res54 arrIndex val in
+	let res56 = let arrIndex = Uint256 56 in let val = Uint256 3502635015429898674229017626613836152831 in setNewIfXSmaller res55 arrIndex val in
+	let res57 = let arrIndex = Uint256 57 in let val = Uint256 3358540910238258030536300376569398951935 in setNewIfXSmaller res56 arrIndex val in
+	let res58 = let arrIndex = Uint256 58 in let val = Uint256 3220374659664501751807634855053158776831 in setNewIfXSmaller res57 arrIndex val in
+	let res59 = let arrIndex = Uint256 59 in let val = Uint256 3087892399045852422628542596524428754943 in setNewIfXSmaller res58 arrIndex val in
+	let res60 = let arrIndex = Uint256 60 in let val = Uint256 2960860296012425255212778080756987592703 in setNewIfXSmaller res59 arrIndex val in
+	let res61 = let arrIndex = Uint256 61 in let val = Uint256 2839054137771012724926516325250418868223 in setNewIfXSmaller res60 arrIndex val in
+	let res62 = let arrIndex = Uint256 62 in let val = Uint256 2722258935367507707706996859454145691647 in setNewIfXSmaller res61 arrIndex val in
+	let res63 = let arrIndex = Uint256 63 in let val = Uint256 2610268544229484780765045556213696167935 in setNewIfXSmaller res62 arrIndex val in
+	let res64 = let arrIndex = Uint256 64 in let val = Uint256 2502885300319193958571922333378000453631 in setNewIfXSmaller res63 arrIndex val in
+	let res65 = let arrIndex = Uint256 65 in let val = Uint256 2399919671254773659805118819743970623487 in setNewIfXSmaller res64 arrIndex val in
+	let res66 = let arrIndex = Uint256 66 in let val = Uint256 2301189921783908737703717501630802821119 in setNewIfXSmaller res65 arrIndex val in
+	let res67 = let arrIndex = Uint256 67 in let val = Uint256 2206521793019491601704439134261549727743 in setNewIfXSmaller res66 arrIndex val in
+	let res68 = let arrIndex = Uint256 68 in let val = Uint256 2115748194871134515168564783402692116479 in setNewIfXSmaller res67 arrIndex val in
+	let res69 = let arrIndex = Uint256 69 in let val = Uint256 2028708911129671949307566740521183346687 in setNewIfXSmaller res68 arrIndex val in
+	let res70 = let arrIndex = Uint256 70 in let val = Uint256 1945250316684124513375052119057996185599 in setNewIfXSmaller res69 arrIndex val in
+	let res71 = let arrIndex = Uint256 71 in let val = Uint256 1865225106372009884014199587421481336831 in setNewIfXSmaller res70 arrIndex val in
+	let res72 = let arrIndex = Uint256 72 in let val = Uint256 1788492034984419117666073304513300660223 in setNewIfXSmaller res71 arrIndex val in
+	let res73 = let arrIndex = Uint256 73 in let val = Uint256 1714915667966964990208967912165996494847 in setNewIfXSmaller res72 arrIndex val in
+	let res74 = let arrIndex = Uint256 74 in let val = Uint256 1644366142376587317378242124992063995903 in setNewIfXSmaller res73 arrIndex val in
+	let res75 = let arrIndex = Uint256 75 in let val = Uint256 1576718937672301888428671268411708276735 in setNewIfXSmaller res74 arrIndex val in
+	let res76 = let arrIndex = Uint256 76 in let val = Uint256 1511854655935336643558907106913628979199 in setNewIfXSmaller res75 arrIndex val in
+	let res77 = let arrIndex = Uint256 77 in let val = Uint256 1449658811130741678082357454851673161727 in setNewIfXSmaller res76 arrIndex val in
+	let res78 = let arrIndex = Uint256 78 in let val = Uint256 1390021627038517938156314751863424548863 in setNewIfXSmaller res77 arrIndex val in
+	let res79 = let arrIndex = Uint256 79 in let val = Uint256 1332837843497611250583009129150422188031 in setNewIfXSmaller res78 arrIndex val in
+	let res80 = let arrIndex = Uint256 80 in let val = Uint256 1278006530620790610545644364558728429567 in setNewIfXSmaller res79 arrIndex val in
+	let res81 = let arrIndex = Uint256 81 in let val = Uint256 1225430910652498332846748256431392161791 in setNewIfXSmaller res80 arrIndex val in
+	let res82 = let arrIndex = Uint256 82 in let val = Uint256 1175018187155249585623915264673694351359 in setNewIfXSmaller res81 arrIndex val in
+	let res83 = let arrIndex = Uint256 83 in let val = Uint256 1126679381223093780446468558216906145791 in setNewIfXSmaller res82 arrIndex val in
+	let res84 = let arrIndex = Uint256 84 in let val = Uint256 1080329174433053119456411494679599644671 in setNewIfXSmaller res83 arrIndex val in
+	let res85 = let arrIndex = Uint256 85 in let val = Uint256 1035885758257346189907937735244580388863 in setNewIfXSmaller res84 arrIndex val in
+	let res86 = let arrIndex = Uint256 86 in let val = Uint256 993270689670607839608468400662101622783 in setNewIfXSmaller res85 arrIndex val in
+	let res87 = let arrIndex = Uint256 87 in let val = Uint256 952408752697250790372885759853747765247 in setNewIfXSmaller res86 arrIndex val in
+	let res88 = let arrIndex = Uint256 88 in let val = Uint256 913227825654598849673391073164504596479 in setNewIfXSmaller res87 arrIndex val in
+	let res89 = let arrIndex = Uint256 89 in let val = Uint256 875658753857474668265023456619450597375 in setNewIfXSmaller res88 arrIndex val in
+	let res90 = let arrIndex = Uint256 90 in let val = Uint256 839635227559564507480479102760887779327 in setNewIfXSmaller res89 arrIndex val in
+	let res91 = let arrIndex = Uint256 91 in let val = Uint256 805093664916125437948904238798044397567 in setNewIfXSmaller res90 arrIndex val in
+	let res92 = let arrIndex = Uint256 92 in let val = Uint256 771973099761463105605096142810743046143 in setNewIfXSmaller res91 arrIndex val in
+	let res93 = let arrIndex = Uint256 93 in let val = Uint256 740215074003106313787373698556008333311 in setNewIfXSmaller res92 arrIndex val in
+	let res94 = let arrIndex = Uint256 94 in let val = Uint256 709763534442753181219281418466841591807 in setNewIfXSmaller res93 arrIndex val in
+	let res95 = let arrIndex = Uint256 95 in let val = Uint256 680564733841876926926749214863536422911 in setNewIfXSmaller res94 arrIndex val in
+	let res96 = let arrIndex = Uint256 96 in let val = Uint256 652567136057371195186997586203332575231 in setNewIfXSmaller res95 arrIndex val in
+	let res97 = let arrIndex = Uint256 97 in let val = Uint256 625721325079798489641586010116704960511 in setNewIfXSmaller res96 arrIndex val in
+	let res98 = let arrIndex = Uint256 98 in let val = Uint256 599979917813693414950432886451725139967 in setNewIfXSmaller res97 arrIndex val in
+	let res99 = let arrIndex = Uint256 99 in let val = Uint256 575297480445977184425850753341355720703 in setNewIfXSmaller res98 arrIndex val in
+	let res100 = let arrIndex = Uint256 100 in let val = Uint256 551630448254872900425972804456347074559 in setNewIfXSmaller res99 arrIndex val in
+	let res101 = let arrIndex = Uint256 101 in let val = Uint256 528937048717783628792119060092411707391 in setNewIfXSmaller res100 arrIndex val in
+	let res102 = let arrIndex = Uint256 102 in let val = Uint256 507177227782417987326846600868857380863 in setNewIfXSmaller res101 arrIndex val in
+	let res103 = let arrIndex = Uint256 103 in let val = Uint256 486312579171031128343732298613950251007 in setNewIfXSmaller res102 arrIndex val in
+	let res104 = let arrIndex = Uint256 104 in let val = Uint256 466306276593002471003532891264408092671 in setNewIfXSmaller res103 arrIndex val in
+	let res105 = let arrIndex = Uint256 105 in let val = Uint256 447123008746104779416515886102660251647 in setNewIfXSmaller res104 arrIndex val in
+	let res106 = let arrIndex = Uint256 106 in let val = Uint256 428728916991741247552240490495652921343 in setNewIfXSmaller res105 arrIndex val in
+	let res107 = let arrIndex = Uint256 107 in let val = Uint256 411091535594146829344560212836376117247 in setNewIfXSmaller res106 arrIndex val in
+	let res108 = let arrIndex = Uint256 108 in let val = Uint256 394179734418075472107167272299635146751 in setNewIfXSmaller res107 arrIndex val in
+	let res109 = let arrIndex = Uint256 109 in let val = Uint256 377963663983834160889726215582593318911 in setNewIfXSmaller res108 arrIndex val in
+	let res110 = let arrIndex = Uint256 110 in let val = Uint256 362414702782685419520589203652335239167 in setNewIfXSmaller res109 arrIndex val in
+	let res111 = let arrIndex = Uint256 111 in let val = Uint256 347505406759629484539078662328460836863 in setNewIfXSmaller res110 arrIndex val in
+	let res112 = let arrIndex = Uint256 112 in let val = Uint256 333209460874402812645752271223906598911 in setNewIfXSmaller res111 arrIndex val in
+	let res113 = let arrIndex = Uint256 113 in let val = Uint256 319501632655197652636411056021540225023 in setNewIfXSmaller res112 arrIndex val in
+	let res114 = let arrIndex = Uint256 114 in let val = Uint256 306357727663124583211687061200571318271 in setNewIfXSmaller res113 arrIndex val in
+	let res115 = let arrIndex = Uint256 115 in let val = Uint256 293754546788812396405978813098581970943 in setNewIfXSmaller res114 arrIndex val in
+	let res116 = let arrIndex = Uint256 116 in let val = Uint256 281669845305773445111617137421885345791 in setNewIfXSmaller res115 arrIndex val in
+	let res117 = let arrIndex = Uint256 117 in let val = Uint256 270082293608263279864102872957453496319 in setNewIfXSmaller res116 arrIndex val in
+	let res118 = let arrIndex = Uint256 118 in let val = Uint256 258971439564336547476984432763364437503 in setNewIfXSmaller res117 arrIndex val in
+	let res119 = let arrIndex = Uint256 119 in let val = Uint256 248317672417651959902117100034610719743 in setNewIfXSmaller res118 arrIndex val in
+	let res120 = let arrIndex = Uint256 120 in let val = Uint256 238102188174312697593221439720218478079 in setNewIfXSmaller res119 arrIndex val in
+	let res121 = let arrIndex = Uint256 121 in let val = Uint256 228306956413649712418347768277622232511 in setNewIfXSmaller res120 arrIndex val in
+	let res122 = let arrIndex = Uint256 122 in let val = Uint256 218914688464368667066255864092044292831 in setNewIfXSmaller res121 arrIndex val in
+	let res123 = let arrIndex = Uint256 123 in let val = Uint256 209908806889891126870119775672831054607 in setNewIfXSmaller res122 arrIndex val in
+	let res124 = let arrIndex = Uint256 124 in let val = Uint256 201273416229031359487226059686877220919 in setNewIfXSmaller res123 arrIndex val in
+	let res125 = let arrIndex = Uint256 125 in let val = Uint256 192993274940365776401274035698589299391 in setNewIfXSmaller res124 arrIndex val in
+	let res126 = let arrIndex = Uint256 126 in let val = Uint256 185053768500776578446843424638883162041 in setNewIfXSmaller res125 arrIndex val in
+	let res127 = let arrIndex = Uint256 127 in let val = Uint256 177440883610688295304820354615089591270 in setNewIfXSmaller res126 arrIndex val in
+match res127 with | PrecisionAndMax precision max =>
+let precision_is_zero = builtin eq zero_uint256 precision in
+match precision_is_zero with
+| True => (* means that x is bigger than the biggest number permitted *) panic zero_uint25
+| False => precision
+end
+ 
+(*
+    This function can be auto-generated by the script 'PrintFunctionGeneralExp.py'.
+    It approximates "e ^ x" via maclaurin summation: "(x^0)/0! + (x^1)/1! + ... + (x^n)/n!".
+    It returns "e ^ (x / 2 ^ precision) * 2 ^ precision", that is, the result is upshifted for accuracy.
+    The global "maxExpArray" maps each "precision" to "((maximumExponent + 1) << (MAX_PRECISION - precision)) - 1".
+    The maximum permitted value for "x" is therefore given by "maxExpArray[precision] >> (MAX_PRECISION - precision)".
+*)
+let generalExp: Uint256 -> Uint256 -> Uint256 =
+fun(x: Uint256) => fun(precision: Uint256) =>
+let two_pow_precision = builtin pow two_uint256 precision in
+let res1 = Uint256 0 in
+let xi1 = x in
+    (* add x^2 * (33! / 2!) *)
+    let xi2 = muldiv xi1 x two_pow_precision in let res2 = let fac = Uint256 4341658809405943247759097200640000000 in muladd xi2 fac res1 in
+    (* add x^3 * (33! / 3!) *)
+    let xi3 = muldiv xi2 x two_pow_precision in let res3 = let fac = Uint256 1447219603135314415919699066880000000 in muladd xi3 fac res2 in
+    (* add x^4 * (33! / 4!) *)
+    let xi4 = muldiv xi3 x two_pow_precision in let res4 = let fac = Uint256 361804900783828603979924766720000000 in muladd xi4 fac res3 in
+    (* add x^5 * (33! / 5!) *)
+    let xi5 = muldiv xi4 x two_pow_precision in let res5 = let fac = Uint256 72360980156765720795984953344000000 in muladd xi5 fac res4 in
+    (* add x^6 * (33! / 6!) *)
+    let xi6 = muldiv xi5 x two_pow_precision in let res6 = let fac = Uint256 12060163359460953465997492224000000 in muladd xi6 fac res5 in
+    (* add x^7 * (33! / 7!) *)
+    let xi7 = muldiv xi6 x two_pow_precision in let res7 = let fac = Uint256 1722880479922993352285356032000000 in muladd xi7 fac res6 in
+    (* add x^8 * (33! / 8!) *)
+    let xi8 = muldiv xi7 x two_pow_precision in let res8 = let fac = Uint256 215360059990374169035669504000000 in muladd xi8 fac res7 in
+    (* add x^9 * (33! / 9!) *)
+    let xi9 = muldiv xi8 x two_pow_precision in let res9 = let fac = Uint256 23928895554486018781741056000000 in muladd xi9 fac res8 in
+    (* add x^10 * (33! / 10!) *)
+    let xi10 = muldiv xi9 x two_pow_precision in let res10 = let fac = Uint256 2392889555448601878174105600000 in muladd xi10 fac res9 in
+    (* add x^11 * (33! / 11!) *)
+    let xi11 = muldiv xi10 x two_pow_precision in let res11 = let fac = Uint256 217535414131691079834009600000 in muladd xi11 fac res10 in
+    (* add x^12 * (33! / 12!) *)
+    let xi12 = muldiv xi11 x two_pow_precision in let res12 = let fac = Uint256 18127951177640923319500800000 in muladd xi12 fac res11 in
+    (* add x^13 * (33! / 13!) *)
+    let xi13 = muldiv xi12 x two_pow_precision in let res13 = let fac = Uint256 1394457782895455639961600000 in muladd xi13 fac res12 in
+    (* add x^14 * (33! / 14!) *)
+    let xi14 = muldiv xi13 x two_pow_precision in let res14 = let fac = Uint256 99604127349675402854400000 in muladd xi14 fac res13 in
+    (* add x^15 * (33! / 15!) *)
+    let xi15 = muldiv xi14 x two_pow_precision in let res15 = let fac = Uint256 6640275156645026856960000 in muladd xi15 fac res14 in
+    (* add x^16 * (33! / 16!) *)
+    let xi16 = muldiv xi15 x two_pow_precision in let res16 = let fac = Uint256 415017197290314178560000 in muladd xi16 fac res15 in
+    (* add x^17 * (33! / 17!) *)
+    let xi17 = muldiv xi16 x two_pow_precision in let res17 = let fac = Uint256 24412776311194951680000 in muladd xi17 fac res16 in
+    (* add x^18 * (33! / 18!) *)
+    let xi18 = muldiv xi17 x two_pow_precision in let res18 = let fac = Uint256 1356265350621941760000 in muladd xi18 fac res17 in
+    (* add x^19 * (33! / 19!) *)
+    let xi19 = muldiv xi18 x two_pow_precision in let res19 = let fac = Uint256 71382386874839040000 in muladd xi19 fac res18 in
+    (* add x^20 * (33! / 20!) *)
+    let xi20 = muldiv xi19 x two_pow_precision in let res20 = let fac = Uint256 3569119343741952000 in muladd xi20 fac res19 in
+    (* add x^21 * (33! / 21!) *)
+    let xi21 = muldiv xi20 x two_pow_precision in let res21 = let fac = Uint256 169958063987712000 in muladd xi21 fac res20 in
+    (* add x^22 * (33! / 22!) *)
+    let xi22 = muldiv xi21 x two_pow_precision in let res22 = let fac = Uint256 7725366544896000 in muladd xi22 fac res21 in
+    (* add x^23 * (33! / 23!) *)
+    let xi23 = muldiv xi22 x two_pow_precision in let res23 = let fac = Uint256 335885501952000 in muladd xi23 fac res22 in
+    (* add x^24 * (33! / 24!) *)
+    let xi24 = muldiv xi23 x two_pow_precision in let res24 = let fac = Uint256 13995229248000 in muladd xi24 fac res23 in
+    (* add x^25 * (33! / 25!) *)
+    let xi25 = muldiv xi24 x two_pow_precision in let res25 = let fac = Uint256 559809169920 in muladd xi25 fac res24 in
+    (* add x^26 * (33! / 26!) *)
+    let xi26 = muldiv xi25 x two_pow_precision in let res26 = let fac = Uint256 21531121920 in muladd xi26 fac res25 in
+    (* add x^27 * (33! / 27!) *)
+    let xi27 = muldiv xi26 x two_pow_precision in let res27 = let fac = Uint256 797448960 in muladd xi27 fac res26 in
+    (* add x^28 * (33! / 28!) *)
+    let xi28 = muldiv xi27 x two_pow_precision in let res28 = let fac = Uint256 28480320 in muladd xi28 fac res27 in
+    (* add x^29 * (33! / 29!) *)
+    let xi29 = muldiv xi28 x two_pow_precision in let res29 = let fac = Uint256 982080 in muladd xi29 fac res28 in
+    (* add x^30 * (33! / 30!) *)
+    let xi30 = muldiv xi29 x two_pow_precision in let res30 = let fac = Uint256 32736 in muladd xi30 fac res29 in
+    (* add x^31 * (33! / 31!) *)
+    let xi31 = muldiv xi30 x two_pow_precision in let res31 = let fac = Uint256 1056 in muladd xi31 fac res30 in
+    (* add x^32 * (33! / 32!) *)
+    let xi32 = muldiv xi31 x two_pow_precision in let res32 = let fac = Uint256 33 in muladd xi32 fac res31 in
+    (* add x^33 * (33! / 33!) *)
+    let xi33 = muldiv xi32 x two_pow_precision in let res33 = let fac = Uint256 1 in muladd xi33 fac res32 in
+(* divide by 33! and then add x^1 / 1! + x^0 / 0! *)
+let fac33 = Uint256 8683317618811886495518194401280000000 in
+let res_div_fac33 = builtin div res33 fac33 in
+let x_add_two_pow_precision = builtin add x two_pow_precision in
+builtin add res_div_fac33 x_add_two_pow_precision
+(*
     General Description:
         Determine a value of precision.
         Calculate an integer approximation of (_baseN / _baseD) ^ (_expN / _expD) * 2 ^ precision.
@@ -343,7 +616,7 @@ let power: Uint256 -> Uint256 -> Uint256 -> Uint256 -> PowerResultAndPrecision =
     let baseLog = log base in
     let baseLogTimesExp = muldiv baseLog _expN _expD in
     
-    let baseLogTimesExp_lt_max_val = uint256_lt baseLogTimesExp in
+    let baseLogTimesExp_lt_max_val = uint256_lt baseLogTimesExp OPT_EXP_MAX_VAL in
     match baseLogTimesExp_lt_max_val with
     | True =>
         let exp_res = optimalExp baseLotTimesExp in
