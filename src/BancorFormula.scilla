@@ -10,8 +10,12 @@ let FIXED_1 = Uint256 170141183460469231731687303715884105728
 let FIXED_2 = Uint256 340282366920938463463374607431768211456
 let MAX_NUM = Uint256 680564733841876926926749214863536422912
 let OPT_LOG_MAX_VAL = Uint256 462491687273110168575455517921668397539
+let OPT_EXP_MAX_VAL = Uint256 2722258935367507707706996859454145691648
+let LN2_NUMERATOR = Uint256 5275695611177340518812009417546793976
+let LN2_DENOMINATOR = Uint256 7611219895485218073587121647846406784
 let zero_uint128 = Uint128 0
 let zero_uint256 = Uint256 0
+let two_uint256 = Uint256 0
 
 let one_msg = 
   fun (msg : Message) => 
@@ -111,7 +115,7 @@ let optimalLog: Uint256 -> Uint256 =
         let to_add7 = Uint256 664613997892457936451903530140172288 in
     let threshold7 = ThresholdAndToAdd threshold_val7 to_add7 in (*  add 1 / 2^8 *)
 
-    let nil = Nil {Int32} in
+    let nil = Nil {ThresholdAndToAdd} in
     let l0 = Cons {ThresholdAndToAdd} threshold0 nil in
     let l1 = Cons {ThresholdAndToAdd} threshold1 l0 in
     let l2 = Cons {ThresholdAndToAdd} threshold2 l1 in
@@ -183,29 +187,55 @@ let optimalLog: Uint256 -> Uint256 =
 *)
 let floorLog2: Uint256 -> Uint256 =
     fun(_n: Uint256) =>
+    let nil = Nil {ThresholdAndToAdd} in
+    let i_temp1 = Uint256 1 in let l1 = Cons {Uint256} i_temp1 nil in let i_temp2 = Uint256 2 in let l2 = Cons {Uint256} i_temp2 l1 in let i_temp3 = Uint256 4 in let l3 = Cons {Uint256} i_temp3 l2 in let i_temp4 = Uint256 8 in let l4 = Cons {Uint256} i_temp4 l3 in let i_temp5 = Uint256 16 in let l5 = Cons {Uint256} i_temp5 l4 in let i_temp6 = Uint256 32 in let l6 = Cons {Uint256} i_temp6 l5 in let i_temp7 = Uint256 64 in let l7 = Cons {Uint256} i_temp7 l6 in let i_temp8 = Uint256 128 in let l8 = Cons {Uint256} i_temp8 l7 in
+    type NAndRes = | NAndRes of Uint256 Uint256 in
+    let uint256_256 = Uint256 256 in
+    let _n_lt_256 = uint256_lt _n uint256_256 in
+    let init = NAndRes _n zero_uint256 in
+    let result_n_and_res = match _n_lt_256 with
+    | True =>
+        let folder: NAndRes -> Uint256 -> Option NAndRes =
+            fun(local_n_and_res: NAndRes) => fun(index: Uint256) =>
+                match local_n_and_res with
+                | NAndRes local_n local_res =>
+                    let one = Uint256 1 in
+                    let local_n_gt_one = uint256_gt local_n one in
+                    match local_n_gt_one with
+                    | False => None
+                    | True =>
+                        let new_n = builtin div local_n two_uint256 in
+                        let new_res builtin add local_res one in
+                        let tmp = NAndRes new_n new_res in
+                        Some {NAndRes} tmp
+                    end
+                end
+        let fold = @list_foldl_while Uint256 NAndRes in
+        fold folder init l8
+    | False =>
+        let folder: NAndRes -> Uint256 -> NAndRes =
+            fun(local_n_and_res: NAndRes) => fun(bits: Uint256) =>
+                match local_n_and_res with
+                | NAndRes local_n local_res =>
+                    let two_pow_bits = builtin pow two_uint256 bits in
+                    let n_ge_two_pow_bits = uint256_ge local_n two_pow_bits in
+                    match n_ge_two_pow_bits with
+                    | True =>
+                        (* divide by biggest component *)
+                        let new_n = builtin div local_n two_pow_bits in
+                        (* add exponent *)
+                        let new_res = builtin add local_res bits in
+                        NAndRes new_n new_res
+                    | False => NAndRes local_n local_res
+                    end
+                end
+        let fold = @list_foldl Uint256 NAndRes in
+        fold folder init l8
+    end in
+    match result_n_and_res with
+    | NAndRes result_n result_res => result_res
+    end
 
-function floorLog2(uint256 _n) internal pure returns (uint8) {
-    uint8 res = 0;
-
-    if (_n < 256) {
-        // At most 8 iterations
-        while (_n > 1) {
-            _n >>= 1;
-            res += 1;
-        }
-    }
-    else {
-        // Exactly 8 iterations
-        for (uint8 s = 128; s > 0; s >>= 1) {
-            if (_n >= (ONE << s)) {
-                _n >>= s;
-                res |= s;
-            }
-        }
-    }
-
-    return res;
-}
 (*
     Compute log(x / FIXED_1) * FIXED_1.
     This functions assumes that "x >= FIXED_1", because the output would be negative otherwise.
@@ -214,34 +244,59 @@ let generalLog: Uint256 -> Uint256 =
     fun(x: Uint256) =>
     (* If x >= 2, then we compute the integer part of log2(x), which is larger than 0. *)
     let x_ge_two = uint256_ge x FIXED_2 in
-    let res0 = match x_ge_two with
+    type ResAndX = | ResAndX of Uint256 Uint256 in
+    let res_and_x = match x_ge_two with
         | True => 
-        | False => zero_uint256
+            let x_div_fixed_1 = builtin div x FIXED_1 in
+            let count = floorLog2 x_div_fixed_1 in
+            let two_pow_count = builtin pow two_uint256 count in
+            let xshifted = builtin div x two_pow_count in (* now x < 2 *)
+            let newRes = builtin mul count FIXED_1 in
+            ResAndX newRes xshifted
+        | False => ResAndX zero_uint256 x
+        end in
+    match res_and_x with
+    | ResAndX res1 x1 =>
+        (* If x > 1, then we compute the fraction part of log2(x), which is larger than 0. *)
+        let x1_gt_fixed_1 = uint256_gt x1 FIXED_1 in
+        match x1_gt_fixed_1 with
+        | True =>
+            (* autogenerated by generate floorLog2 loop *)
+                let nil = Nil {ThresholdAndToAdd} in
+                let i_temp1 = Uint256 1 in let l1 = Cons {Uint256} i_temp1 nil in let i_temp2 = Uint256 2 in let l2 = Cons {Uint256} i_temp2 l1 in let i_temp3 = Uint256 3 in let l3 = Cons {Uint256} i_temp3 l2 in let i_temp4 = Uint256 4 in let l4 = Cons {Uint256} i_temp4 l3 in let i_temp5 = Uint256 5 in let l5 = Cons {Uint256} i_temp5 l4 in let i_temp6 = Uint256 6 in let l6 = Cons {Uint256} i_temp6 l5 in let i_temp7 = Uint256 7 in let l7 = Cons {Uint256} i_temp7 l6 in let i_temp8 = Uint256 8 in let l8 = Cons {Uint256} i_temp8 l7 in let i_temp9 = Uint256 9 in let l9 = Cons {Uint256} i_temp9 l8 in let i_temp10 = Uint256 10 in let l10 = Cons {Uint256} i_temp10 l9 in let i_temp11 = Uint256 11 in let l11 = Cons {Uint256} i_temp11 l10 in let i_temp12 = Uint256 12 in let l12 = Cons {Uint256} i_temp12 l11 in let i_temp13 = Uint256 13 in let l13 = Cons {Uint256} i_temp13 l12 in let i_temp14 = Uint256 14 in let l14 = Cons {Uint256} i_temp14 l13 in let i_temp15 = Uint256 15 in let l15 = Cons {Uint256} i_temp15 l14 in let i_temp16 = Uint256 16 in let l16 = Cons {Uint256} i_temp16 l15 in let i_temp17 = Uint256 17 in let l17 = Cons {Uint256} i_temp17 l16 in let i_temp18 = Uint256 18 in let l18 = Cons {Uint256} i_temp18 l17 in let i_temp19 = Uint256 19 in let l19 = Cons {Uint256} i_temp19 l18 in let i_temp20 = Uint256 20 in let l20 = Cons {Uint256} i_temp20 l19 in let i_temp21 = Uint256 21 in let l21 = Cons {Uint256} i_temp21 l20 in let i_temp22 = Uint256 22 in let l22 = Cons {Uint256} i_temp22 l21 in
+                let i_temp23 = Uint256 23 in let l23 = Cons {Uint256} i_temp23 l22 in let i_temp24 = Uint256 24 in let l24 = Cons {Uint256} i_temp24 l23 in let i_temp25 = Uint256 25 in let l25 = Cons {Uint256} i_temp25 l24 in let i_temp26 = Uint256 26 in let l26 = Cons {Uint256} i_temp26 l25 in let i_temp27 = Uint256 27 in let l27 = Cons {Uint256} i_temp27 l26 in let i_temp28 = Uint256 28 in let l28 = Cons {Uint256} i_temp28 l27 in let i_temp29 = Uint256 29 in let l29 = Cons {Uint256} i_temp29 l28 in let i_temp30 = Uint256 30 in let l30 = Cons {Uint256} i_temp30 l29 in let i_temp31 = Uint256 31 in let l31 = Cons {Uint256} i_temp31 l30 in let i_temp32 = Uint256 32 in let l32 = Cons {Uint256} i_temp32 l31 in let i_temp33 = Uint256 33 in let l33 = Cons {Uint256} i_temp33 l32 in let i_temp34 = Uint256 34 in let l34 = Cons {Uint256} i_temp34 l33 in let i_temp35 = Uint256 35 in let l35 = Cons {Uint256} i_temp35 l34 in let i_temp36 = Uint256 36 in let l36 = Cons {Uint256} i_temp36 l35 in let i_temp37 = Uint256 37 in let l37 = Cons {Uint256} i_temp37 l36 in let i_temp38 = Uint256 38 in let l38 = Cons {Uint256} i_temp38 l37 in let i_temp39 = Uint256 39 in let l39 = Cons {Uint256} i_temp39 l38 in let i_temp40 = Uint256 40 in let l40 = Cons {Uint256} i_temp40 l39 in let i_temp41 = Uint256 41 in let l41 = Cons {Uint256} i_temp41 l40 in let i_temp42 = Uint256 42 in let l42 = Cons {Uint256} i_temp42 l41 in let i_temp43 = Uint256 43 in let l43 = Cons {Uint256} i_temp43 l42 in
+                let i_temp44 = Uint256 44 in let l44 = Cons {Uint256} i_temp44 l43 in let i_temp45 = Uint256 45 in let l45 = Cons {Uint256} i_temp45 l44 in let i_temp46 = Uint256 46 in let l46 = Cons {Uint256} i_temp46 l45 in let i_temp47 = Uint256 47 in let l47 = Cons {Uint256} i_temp47 l46 in let i_temp48 = Uint256 48 in let l48 = Cons {Uint256} i_temp48 l47 in let i_temp49 = Uint256 49 in let l49 = Cons {Uint256} i_temp49 l48 in let i_temp50 = Uint256 50 in let l50 = Cons {Uint256} i_temp50 l49 in let i_temp51 = Uint256 51 in let l51 = Cons {Uint256} i_temp51 l50 in let i_temp52 = Uint256 52 in let l52 = Cons {Uint256} i_temp52 l51 in let i_temp53 = Uint256 53 in let l53 = Cons {Uint256} i_temp53 l52 in let i_temp54 = Uint256 54 in let l54 = Cons {Uint256} i_temp54 l53 in let i_temp55 = Uint256 55 in let l55 = Cons {Uint256} i_temp55 l54 in let i_temp56 = Uint256 56 in let l56 = Cons {Uint256} i_temp56 l55 in let i_temp57 = Uint256 57 in let l57 = Cons {Uint256} i_temp57 l56 in let i_temp58 = Uint256 58 in let l58 = Cons {Uint256} i_temp58 l57 in let i_temp59 = Uint256 59 in let l59 = Cons {Uint256} i_temp59 l58 in let i_temp60 = Uint256 60 in let l60 = Cons {Uint256} i_temp60 l59 in let i_temp61 = Uint256 61 in let l61 = Cons {Uint256} i_temp61 l60 in let i_temp62 = Uint256 62 in let l62 = Cons {Uint256} i_temp62 l61 in let i_temp63 = Uint256 63 in let l63 = Cons {Uint256} i_temp63 l62 in let i_temp64 = Uint256 64 in let l64 = Cons {Uint256} i_temp64 l63 in
+                let i_temp65 = Uint256 65 in let l65 = Cons {Uint256} i_temp65 l64 in let i_temp66 = Uint256 66 in let l66 = Cons {Uint256} i_temp66 l65 in let i_temp67 = Uint256 67 in let l67 = Cons {Uint256} i_temp67 l66 in let i_temp68 = Uint256 68 in let l68 = Cons {Uint256} i_temp68 l67 in let i_temp69 = Uint256 69 in let l69 = Cons {Uint256} i_temp69 l68 in let i_temp70 = Uint256 70 in let l70 = Cons {Uint256} i_temp70 l69 in let i_temp71 = Uint256 71 in let l71 = Cons {Uint256} i_temp71 l70 in let i_temp72 = Uint256 72 in let l72 = Cons {Uint256} i_temp72 l71 in let i_temp73 = Uint256 73 in let l73 = Cons {Uint256} i_temp73 l72 in let i_temp74 = Uint256 74 in let l74 = Cons {Uint256} i_temp74 l73 in let i_temp75 = Uint256 75 in let l75 = Cons {Uint256} i_temp75 l74 in let i_temp76 = Uint256 76 in let l76 = Cons {Uint256} i_temp76 l75 in let i_temp77 = Uint256 77 in let l77 = Cons {Uint256} i_temp77 l76 in let i_temp78 = Uint256 78 in let l78 = Cons {Uint256} i_temp78 l77 in let i_temp79 = Uint256 79 in let l79 = Cons {Uint256} i_temp79 l78 in let i_temp80 = Uint256 80 in let l80 = Cons {Uint256} i_temp80 l79 in let i_temp81 = Uint256 81 in let l81 = Cons {Uint256} i_temp81 l80 in let i_temp82 = Uint256 82 in let l82 = Cons {Uint256} i_temp82 l81 in let i_temp83 = Uint256 83 in let l83 = Cons {Uint256} i_temp83 l82 in let i_temp84 = Uint256 84 in let l84 = Cons {Uint256} i_temp84 l83 in let i_temp85 = Uint256 85 in let l85 = Cons {Uint256} i_temp85 l84 in 
+                let i_temp86 = Uint256 86 in let l86 = Cons {Uint256} i_temp86 l85 in let i_temp87 = Uint256 87 in let l87 = Cons {Uint256} i_temp87 l86 in let i_temp88 = Uint256 88 in let l88 = Cons {Uint256} i_temp88 l87 in let i_temp89 = Uint256 89 in let l89 = Cons {Uint256} i_temp89 l88 in let i_temp90 = Uint256 90 in let l90 = Cons {Uint256} i_temp90 l89 in let i_temp91 = Uint256 91 in let l91 = Cons {Uint256} i_temp91 l90 in let i_temp92 = Uint256 92 in let l92 = Cons {Uint256} i_temp92 l91 in let i_temp93 = Uint256 93 in let l93 = Cons {Uint256} i_temp93 l92 in let i_temp94 = Uint256 94 in let l94 = Cons {Uint256} i_temp94 l93 in let i_temp95 = Uint256 95 in let l95 = Cons {Uint256} i_temp95 l94 in let i_temp96 = Uint256 96 in let l96 = Cons {Uint256} i_temp96 l95 in let i_temp97 = Uint256 97 in let l97 = Cons {Uint256} i_temp97 l96 in let i_temp98 = Uint256 98 in let l98 = Cons {Uint256} i_temp98 l97 in let i_temp99 = Uint256 99 in let l99 = Cons {Uint256} i_temp99 l98 in let i_temp100 = Uint256 100 in let l100 = Cons {Uint256} i_temp100 l99 in let i_temp101 = Uint256 101 in let l101 = Cons {Uint256} i_temp101 l100 in let i_temp102 = Uint256 102 in let l102 = Cons {Uint256} i_temp102 l101 in let i_temp103 = Uint256 103 in let l103 = Cons {Uint256} i_temp103 l102 in let i_temp104 = Uint256 104 in let l104 = Cons {Uint256} i_temp104 l103 in let i_temp105 = Uint256 105 in let l105 = Cons {Uint256} i_temp105 l104 in
+                let i_temp106 = Uint256 106 in let l106 = Cons {Uint256} i_temp106 l105 in let i_temp107 = Uint256 107 in let l107 = Cons {Uint256} i_temp107 l106 in let i_temp108 = Uint256 108 in let l108 = Cons {Uint256} i_temp108 l107 in let i_temp109 = Uint256 109 in let l109 = Cons {Uint256} i_temp109 l108 in let i_temp110 = Uint256 110 in let l110 = Cons {Uint256} i_temp110 l109 in let i_temp111 = Uint256 111 in let l111 = Cons {Uint256} i_temp111 l110 in let i_temp112 = Uint256 112 in let l112 = Cons {Uint256} i_temp112 l111 in let i_temp113 = Uint256 113 in let l113 = Cons {Uint256} i_temp113 l112 in let i_temp114 = Uint256 114 in let l114 = Cons {Uint256} i_temp114 l113 in let i_temp115 = Uint256 115 in let l115 = Cons {Uint256} i_temp115 l114 in let i_temp116 = Uint256 116 in let l116 = Cons {Uint256} i_temp116 l115 in let i_temp117 = Uint256 117 in let l117 = Cons {Uint256} i_temp117 l116 in let i_temp118 = Uint256 118 in let l118 = Cons {Uint256} i_temp118 l117 in let i_temp119 = Uint256 119 in let l119 = Cons {Uint256} i_temp119 l118 in let i_temp120 = Uint256 120 in let l120 = Cons {Uint256} i_temp120 l119 in let i_temp121 = Uint256 121 in let l121 = Cons {Uint256} i_temp121 l120 in let i_temp122 = Uint256 122 in let l122 = Cons {Uint256} i_temp122 l121 in let i_temp123 = Uint256 123 in let l123 = Cons {Uint256} i_temp123 l122 in let i_temp124 = Uint256 124 in let l124 = Cons {Uint256} i_temp124 l123 in
+                let i_temp125 = Uint256 125 in let l125 = Cons {Uint256} i_temp125 l124 in let i_temp126 = Uint256 126 in let l126 = Cons {Uint256} i_temp126 l125 in let i_temp127 = Uint256 127 in let l127 = Cons {Uint256} i_temp127 l126 in
+            let folder = fun(cur_res_and_x: ResAndX) => fun(i: Uint256) =>
+                match cur_res_and_x with
+                | ResAndX local_res local_x =>
+                    let new_x = muldiv local_x local_x FIXED_1 in (* now 1 < x < 4 *)
+                    let new_x_ge_two = uint256_ge new_x FIXED_2 in
+                    match new_x_ge_two with
+                    | True =>
+                        let shiftedX = builtin div new_x two_uint256 in
+                        let one = Uint256 1 in
+                        let i_minus_one = builtin sub i one in
+                        let two_pow_i_minus_one = builtin pow two_uint256 i_minus_one in
+                        let oneShifted = builtin mul one two_pow_i_minus_one in
+                        let newRes = builtin add local_res oneShifted in
+                        ResAndX newRes shiftedX
+                    | False => ResAndX local_res new_x
+                    end
+                end in
+            let fold = @list_foldl Uint256 ResAndX in
+            let init = ResAndX res1 x1 in
+            let result_res_and_x = fold folder init l127 in
+            match result_res_and_x with
+            | ResAndX res2 x2 =>
+                muldiv res2 LN2_NUMERATOR LN2_DENOMINATOR
+            end
+        | False => muldiv res1 LN2_NUMERATOR LN2_DENOMINATOR
         end
-
-function generalLog(uint256 x) internal pure returns (uint256) {
-    uint256 res = 0;
-
-    // If x >= 2, then we compute the integer part of log2(x), which is larger than 0.
-    if (x >= FIXED_2) {
-        uint8 count = floorLog2(x / FIXED_1);
-        x >>= count; // now x < 2
-        res = count * FIXED_1;
-    }
-
-    // If x > 1, then we compute the fraction part of log2(x), which is larger than 0.
-    if (x > FIXED_1) {
-        for (uint8 i = MAX_PRECISION; i > 0; --i) {
-            x = (x * x) / FIXED_1; // now 1 < x < 4
-            if (x >= FIXED_2) {
-                x >>= 1; // now 1 < x < 2
-                res += ONE << (i - 1);
-            }
-        }
-    }
-
-    return res * LN2_NUMERATOR / LN2_DENOMINATOR;
-}
+    end
 
 (* implements both optimal log and general log to provide an abstraction layer for log *)
 let log: Uint256 -> Uint256 = 
@@ -287,14 +342,28 @@ let power: Uint256 -> Uint256 -> Uint256 -> Uint256 -> PowerResultAndPrecision =
     let base = muldiv _baseN FIXED_1 _baseD in
     let baseLog = log base in
     let baseLogTimesExp = muldiv baseLog _expN _expD in
+    
+    let baseLogTimesExp_lt_max_val = uint256_lt baseLogTimesExp in
+    match baseLogTimesExp_lt_max_val with
+    | True =>
+        let exp_res = optimalExp baseLotTimesExp in
+        PowerResultAndPrecision exp_res MAX_PRECISION 
+    | False =>
+        let precision = findPositionInMaxExpArray baseLogTimesExp in
+        let max_sub_precision = builtin sub MAX_PRECISION precision in
+        let two_pow_max_sub_precision = builtin pow two_uint256 max_sub_precision in
+        let baseLogTimesExpShifted = builtin div baseLogTimesExp two_pow_max_sub_precision in
+        let exp_res = generalExp baseLogTimesExpShifted precision in
+        PowerResultAndPrecision exp_res precision
+    end
 
-    if (baseLogTimesExp < OPT_EXP_MAX_VAL) {
+    (* if (baseLogTimesExp < OPT_EXP_MAX_VAL) {
         return (optimalExp(baseLogTimesExp), MAX_PRECISION);
     }
     else {
         uint8 precision = findPositionInMaxExpArray(baseLogTimesExp);
         return (generalExp(baseLogTimesExp >> (MAX_PRECISION - precision), precision), precision);
-    }
+    } *)
 
 
 contract BancorFormula()
