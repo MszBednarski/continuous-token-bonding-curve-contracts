@@ -409,19 +409,19 @@ let optimalExp: Uint256 -> Uint256 = fun(x: Uint256) =>
     end in
     
     (* if bit 124 set then multiply by e^2^(-3)*)
-    let res22 = let bits = Uint256 124 in let numerator = Uint256 5103246950987213 in let denominator = Uint256 4503599627370496 in if_contains_muldiv x bits res21 numerator denominator in
+    let res22 = let bits = Uint256 124 in let numerator = Uint256 600596269623765960634066700837880239609 in let denominator = Uint256 530024347646835984032474664511850276726 in if_contains_muldiv x bits res21 numerator denominator in
     (* if bit 125 set then multiply by e^2^(-2)*)
-    let res23 = let bits = Uint256 125 in let numerator = Uint256 2891368194064579 in let denominator = Uint256 2251799813685248 in if_contains_muldiv x bits res22 numerator denominator in
+    let res23 = let bits = Uint256 125 in let numerator = Uint256 530024347646835984032474664511850276728 in let denominator = Uint256 412783376994266390547521411024565284564 in if_contains_muldiv x bits res22 numerator denominator in
     (* if bit 126 set then multiply by e^2^(-1)*)
-    let res24 = let bits = Uint256 126 in let numerator = Uint256 1856295125090727 in let denominator = Uint256 1125899906842624 in if_contains_muldiv x bits res23 numerator denominator in
+    let res24 = let bits = Uint256 126 in let numerator = Uint256 412783376994266390547521411024565284565 in let denominator = Uint256 250365773966741064234501452596301656607 in if_contains_muldiv x bits res23 numerator denominator in
     (* if bit 127 set then multiply by e^2^(0)*)
-    let res25 = let bits = Uint256 127 in let numerator = Uint256 6121026514868073 in let denominator = Uint256 2251799813685248 in if_contains_muldiv x bits res24 numerator denominator in
+    let res25 = let bits = Uint256 127 in let numerator = Uint256 250365773966741064234501452596301656606 in let denominator = Uint256 92104421015340344839251721785254237641 in if_contains_muldiv x bits res24 numerator denominator in
     (* if bit 128 set then multiply by e^2^(1)*)
-    let res26 = let bits = Uint256 128 in let numerator = Uint256 8319337573440941 in let denominator = Uint256 1125899906842624 in if_contains_muldiv x bits res25 numerator denominator in
+    let res26 = let bits = Uint256 128 in let numerator = Uint256 92104421015340344839251721785254237637 in let denominator = Uint256 12464977905455307901915658421775307242 in if_contains_muldiv x bits res25 numerator denominator in
     (* if bit 129 set then multiply by e^2^(2)*)
-    let res27 = let bits = Uint256 129 in let numerator = Uint256 7684006504512087 in let denominator = Uint256 140737488355328 in if_contains_muldiv x bits res26 numerator denominator in
+    let res27 = let bits = Uint256 129 in let numerator = Uint256 12464977905455307901915658421775307223 in let denominator = Uint256 228304034072369565894155946646425149 in if_contains_muldiv x bits res26 numerator denominator in
     (* if bit 130 set then multiply by e^2^(3)*)
-    let res28 = let bits = Uint256 130 in let numerator = Uint256 6555195937328235 in let denominator = Uint256 2199023255552 in if_contains_muldiv x bits res27 numerator denominator in
+    let res28 = let bits = Uint256 130 in let numerator = Uint256 228304034072369565894155946646422279 in let denominator = Uint256 76587471230661696290698490699025 in if_contains_muldiv x bits res27 numerator denominator in
     res28
 
 
