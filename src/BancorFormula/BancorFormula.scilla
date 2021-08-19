@@ -398,8 +398,9 @@ let optimalExp: Uint256 -> Uint256 = fun(x: Uint256) =>
     let if_contains_muldiv: Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 -> Uint256 =
     fun(local_x: Uint256) => fun(bits: Uint256) => fun(res: Uint256) => fun(numerator: Uint256) => fun(denominator: Uint256) =>
     let one = Uint256 1 in
-    let bits_plus_one = builtin add bits one in 
-    let x_mod_condition = builtin rem local_x bits_plus_one in
+    let bits_add_one = builtin add bits one in 
+    let two_pow_bits_add_one = pow_uint256 two_uint256 bits_add_one in
+    let x_mod_condition = builtin rem local_x two_pow_bits_add_one in
     let two_pow_bits = pow_uint256 two_uint256 bits in
     let modded_div_bits = builtin div x_mod_condition two_pow_bits in
     let x_not_contains = builtin eq zero_uint256 modded_div_bits in
