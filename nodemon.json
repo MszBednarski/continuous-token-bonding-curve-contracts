@@ -1,5 +1,5 @@
 {
   "watch": ["src/"],
   "ext": "scilla,scillib",
-  "exec": "scilla-checker -gaslimit 10000 -libdir /scilla/0/src/stdlib src/Token/Token.scilla"
+  "exec": "scilla-checker -gaslimit 10000 -libdir /scilla/0/src/stdlib src/BancorFormula/BancorFormula.scilla"
 }
