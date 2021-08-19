@@ -1,7 +1,7 @@
 {
   "scripts": {
     "check": "nodemon",
-    "test": "jest -c jest.config.js"
+    "test": "ts-node ./src/BancorFormula/__tests__/run.ts"
   },
   "dependencies": {
     "@zilliqa-js/zilliqa": "^3.0.0",

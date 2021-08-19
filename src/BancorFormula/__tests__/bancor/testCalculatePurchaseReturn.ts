@@ -3,17 +3,7 @@ import { testMaker } from "../../../../scillaTest";
 import { ByStr20, Uint128 } from "../../../../boost-zil";
 import * as sdk from "../../build/bind";
 import { Long, BN } from "@zilliqa-js/util";
-import {
-  bancorPaperTestCases,
-  below50percentTestCases,
-  above50percentTestCases,
-  maxConnectorWeightTestCases,
-  zilUpscaledTestCases,
-  eighteenZeroesTestCases,
-  thirtyZeroesTestCases,
-  thirtyFiveZeroesTestCases,
-  generalLogGeneralExp,
-} from "../testCases";
+import * as testCases from "../testCases";
 import createHash from "create-hash";
 
 function testHash(s: string[]): string {
@@ -42,7 +32,10 @@ function printError(res: any, test: string[]) {
   }
 }
 
-export const testCalculatePurchaseReturn: TestingFunction = async (code, ss) => {
+export const testCalculatePurchaseReturn: TestingFunction = async (
+  code,
+  ss
+) => {
   try {
     const fillerAddr = new ByStr20(
       "0x1234567890123456789012345678901234567890"
@@ -73,15 +66,9 @@ export const testCalculatePurchaseReturn: TestingFunction = async (code, ss) => 
       );
       res.forEach((r, index) => printError(r, testCases[index]));
     }
-    await runBatch(bancorPaperTestCases);
-    await runBatch(below50percentTestCases);
-    await runBatch(above50percentTestCases);
-    await runBatch(maxConnectorWeightTestCases);
-    await runBatch(zilUpscaledTestCases);
-    await runBatch(eighteenZeroesTestCases);
-    await runBatch(thirtyZeroesTestCases);
-    await runBatch(thirtyFiveZeroesTestCases);
-    await runBatch(generalLogGeneralExp);
+    for (const [k, t] of Object.entries(testCases)) {
+      await runBatch(t);
+    }
     const results = testing.getAllResults();
     const limit = new BN("100000");
     console.log(
