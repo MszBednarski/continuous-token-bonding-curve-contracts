@@ -15,7 +15,7 @@ let c_LN2_NUMERATOR = Uint256 5275695611177340518812009417546793976
 let c_LN2_DENOMINATOR = Uint256 7611219895485218073587121647846406784
 let zero_uint128 = Uint128 0
 let zero_uint256 = Uint256 0
-let two_uint256 = Uint256 0
+let two_uint256 = Uint256 2
 
 let one_msg = 
   fun (msg : Message) => 
@@ -753,7 +753,8 @@ transition CalculatePurchaseReturn(in_supply: Uint128, in_connector_balance: Uin
             match power_result_and_precision with
             | PowerResultAndPrecision power_result precision =>
                 supply_mul_power_result = builtin mul supply power_result;
-                tmp = builtin div supply_mul_power_result precision;
+                two_pow_precision = pow_uint256 two_uint256 precision;
+                tmp = builtin div supply_mul_power_result two_pow_precision;
                 result_uint256 = builtin sub tmp supply;
                 result = uint256_to_uint128 result_uint256;
                 SendCalculatePurchaseReturnCallback result
