@@ -1,0 +1,162 @@
+{
+  "contract_info": {
+    "scilla_major_version": "0",
+    "vname": "FungibleToken",
+    "params": [
+      { "vname": "contract_owner", "type": "ByStr20" },
+      { "vname": "name", "type": "String" },
+      { "vname": "symbol", "type": "String" },
+      { "vname": "decimals", "type": "Uint32" },
+      { "vname": "init_supply", "type": "Uint128" }
+    ],
+    "fields": [
+      { "vname": "total_supply", "type": "Uint128", "depth": 0 },
+      { "vname": "balances", "type": "Map (ByStr20) (Uint128)", "depth": 1 },
+      {
+        "vname": "allowances",
+        "type": "Map (ByStr20) (Map (ByStr20) (Uint128))",
+        "depth": 2
+      }
+    ],
+    "transitions": [
+      {
+        "vname": "IncreaseAllowance",
+        "params": [
+          { "vname": "spender", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "DecreaseAllowance",
+        "params": [
+          { "vname": "spender", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "Transfer",
+        "params": [
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "TransferFrom",
+        "params": [
+          { "vname": "from", "type": "ByStr20" },
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      }
+    ],
+    "procedures": [
+      {
+        "vname": "ThrowError",
+        "params": [ { "vname": "err", "type": "Token.Error" } ]
+      },
+      {
+        "vname": "IsNotSender",
+        "params": [ { "vname": "address", "type": "ByStr20" } ]
+      },
+      {
+        "vname": "AuthorizedMoveIfSufficientBalance",
+        "params": [
+          { "vname": "from", "type": "ByStr20" },
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "vname": "TransferFromSuccess",
+        "params": [
+          { "vname": "initiator", "type": "ByStr20" },
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "TransferSuccess",
+        "params": [
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "DecreasedAllowance",
+        "params": [
+          { "vname": "token_owner", "type": "ByStr20" },
+          { "vname": "spender", "type": "ByStr20" },
+          { "vname": "new_allowance", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "IncreasedAllowance",
+        "params": [
+          { "vname": "token_owner", "type": "ByStr20" },
+          { "vname": "spender", "type": "ByStr20" },
+          { "vname": "new_allowance", "type": "Uint128" }
+        ]
+      }
+    ],
+    "ADTs": [
+      {
+        "tname": "Token.Unit",
+        "tparams": [],
+        "tmap": [ { "cname": "Token.Unit", "argtypes": [] } ]
+      },
+      {
+        "tname": "Token.Error",
+        "tparams": [],
+        "tmap": [
+          { "cname": "Token.CodeIsSender", "argtypes": [] },
+          { "cname": "Token.CodeInsufficientFunds", "argtypes": [] },
+          { "cname": "Token.CodeInsufficientAllowance", "argtypes": [] }
+        ]
+      },
+      {
+        "tname": "Option",
+        "tparams": [ "'A" ],
+        "tmap": [
+          { "cname": "Some", "argtypes": [ "'A" ] },
+          { "cname": "None", "argtypes": [] }
+        ]
+      },
+      {
+        "tname": "Bool",
+        "tparams": [],
+        "tmap": [
+          { "cname": "True", "argtypes": [] },
+          { "cname": "False", "argtypes": [] }
+        ]
+      },
+      {
+        "tname": "Nat",
+        "tparams": [],
+        "tmap": [
+          { "cname": "Zero", "argtypes": [] },
+          { "cname": "Succ", "argtypes": [ "Nat" ] }
+        ]
+      },
+      {
+        "tname": "List",
+        "tparams": [ "'A" ],
+        "tmap": [
+          { "cname": "Cons", "argtypes": [ "'A", "List ('A)" ] },
+          { "cname": "Nil", "argtypes": [] }
+        ]
+      },
+      {
+        "tname": "Pair",
+        "tparams": [ "'A", "'B" ],
+        "tmap": [ { "cname": "Pair", "argtypes": [ "'A", "'B" ] } ]
+      }
+    ]
+  },
+  "warnings": [],
+  "gas_remaining": "9941"
+}
+

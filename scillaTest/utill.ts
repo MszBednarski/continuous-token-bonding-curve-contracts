@@ -31,27 +31,32 @@ export function printResult(
     result.result == "error" ? RED : GREEN,
     `result: ${result.result}`
   );
-  const events = result.message.events.map((e: any) => [
-    e._eventname,
-    e.params.map((p: any) => p.value),
-  ]);
-  console.log(CYAN, `event: ${events}`);
+  if (result.result != "error") {
+    const events = result.message.events.map((e: any) => [
+      e._eventname,
+      e.params.map((p: any) => p.value),
+    ]);
+    console.log(CYAN, `event: ${events}`);
+  }
   if (result.result == "error") {
     console.log(result.message);
   }
   printLine();
 }
 
-export const testRunner =
-  (ss: ScillaServer) =>
-  (scope: string) =>
-  (name: string) =>
-  async (testBody: any) => {
-    try {
-      const result = await ss.runTest({ testBody });
-      printResult(scope, name, result, testBody);
-      return result;
-    } catch (e) {
-      throw e;
-    }
+export const testRunner = (ss: ScillaServer) => (scope: string) => {
+  const allResults: any[] = [];
+  return {
+    getAllResults: () => allResults,
+    runner: async (testBody: any) => {
+      try {
+        const result = await ss.runTest({ testBody });
+        allResults.push(result);
+        printResult(scope, "", result, testBody);
+        return result;
+      } catch (e) {
+        throw e;
+      }
+    },
   };
+};
