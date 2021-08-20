@@ -13,6 +13,15 @@
           { "vname": "in_connector_weight", "type": "Uint128" },
           { "vname": "in_deposit_amount", "type": "Uint128" }
         ]
+      },
+      {
+        "vname": "CalculateSaleReturn",
+        "params": [
+          { "vname": "in_supply", "type": "Uint128" },
+          { "vname": "in_connector_balance", "type": "Uint128" },
+          { "vname": "in_connector_weight", "type": "Uint128" },
+          { "vname": "in_sell_amount", "type": "Uint128" }
+        ]
       }
     ],
     "procedures": [
@@ -33,6 +42,10 @@
       },
       {
         "vname": "SendCalculatePurchaseReturnCallback",
+        "params": [ { "vname": "result", "type": "Uint128" } ]
+      },
+      {
+        "vname": "SendCalculateSaleReturnCallback",
         "params": [ { "vname": "result", "type": "Uint128" } ]
       }
     ],

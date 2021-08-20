@@ -1,3 +1,4 @@
+import Big from "big.js";
 import { ScillaServer } from ".";
 
 const FgRed = "\x1b[31m";
@@ -13,6 +14,11 @@ export const YELLOW = FgYellow + InjectReset;
 export const CYAN = FgCyan + InjectReset;
 export const MAGENTA = FgMagenta + InjectReset;
 
+function redIfTrue(cond: boolean, s: string) {
+  const color = cond ? FgRed : FgGreen;
+  return color + s + Reset;
+}
+
 function printLine() {
   console.log(MAGENTA, "________________________________");
 }
@@ -25,33 +31,41 @@ export function printResult(
   result: any,
   testBody: any
 ) {
-  testBody.code = "Removed Code";
-  console.info(`Test: ${testName}:`);
-  console.log(
-    result.result == "error" ? RED : GREEN,
-    `result: ${result.result}`
+  // testBody.code = "Removed Code";
+  // console.info(`Test: ${testName}:`);
+  process.stdout.write(
+    redIfTrue(result.result == "error", ` ${result.result}`)
   );
-  if (result.result != "error") {
-    const events = result.message.events.map((e: any) => [
-      e._eventname,
-      e.params.map((p: any) => p.value),
-    ]);
-    console.log(CYAN, `event: ${events}`);
-  }
-  if (result.result == "error") {
-    console.log(result.message);
-  }
-  printLine();
+  // if (result.result != "error") {
+  //   const events = result.message.events.map((e: any) => [
+  //     e._eventname,
+  //     e.params.map((p: any) => JSON.stringify(p.value, null, 2)),
+  //   ]);
+  //   console.log(CYAN, `event: ${events}`);
+  // }
+  // if (result.result == "error") {
+  //   console.log(result.message);
+  // }
+  // printLine();
 }
 
 export const testRunner = (ss: ScillaServer) => (scope: string) => {
   const allResults: any[] = [];
+  const allErrors: { result: any; error: Big }[] = [];
   return {
-    getAllResults: () => allResults,
-    runner: async (testBody: any) => {
+    getAllResults: () => {
+      console.log("");
+      return allResults;
+    },
+    getAllErrors: () => {
+      console.log("");
+      return allErrors;
+    },
+    runner: async (testBody: any, errorEval: (response: any) => any) => {
       try {
         const result = await ss.runTest({ testBody });
         allResults.push(result);
+        allErrors.push({ result, error: errorEval(result) });
         printResult(scope, "", result, testBody);
         return result;
       } catch (e) {

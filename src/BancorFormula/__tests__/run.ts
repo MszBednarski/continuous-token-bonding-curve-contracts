@@ -1,5 +1,6 @@
 import { ScillaServer } from "../../../scillaTest";
 import { testCalculatePurchaseReturn } from "./bancor/testCalculatePurchaseReturn";
+import { testCalculateSaleReturn } from "./bancor/testCalculateSaleReturn";
 import { resolve } from "path";
 import { readFileSync } from "fs";
 
@@ -9,10 +10,12 @@ const ss = new ScillaServer(scillaServerUrl);
 
 (async () => {
   try {
-    await testCalculatePurchaseReturn(
-      readFileSync(resolve(__dirname, "../BancorFormula.scilla"), "utf-8"),
-      ss
+    const code = readFileSync(
+      resolve(__dirname, "../BancorFormula.scilla"),
+      "utf-8"
     );
+    await testCalculatePurchaseReturn(code, ss);
+    await testCalculateSaleReturn(code, ss);
   } catch (e) {
     console.error(e);
   }

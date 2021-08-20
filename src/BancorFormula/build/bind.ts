@@ -714,8 +714,7 @@ transition CalculatePurchaseReturn(in_supply: Uint128, in_connector_balance: Uin
         match connector_weight_is_c_MAX_WEIGHT with
         | True =>
             
-            supply_mul_deposit = builtin mul supply deposit_amount;
-            result_uint256 = builtin div supply_mul_deposit connector_balance;
+            result_uint256 = muldiv supply deposit_amount connector_balance;
             result = uint256_to_uint128 result_uint256;
             SendCalculatePurchaseReturnCallback result
         | False =>
@@ -723,12 +722,68 @@ transition CalculatePurchaseReturn(in_supply: Uint128, in_connector_balance: Uin
             power_result_and_precision = power baseN connector_balance connector_weight c_MAX_WEIGHT;
             match power_result_and_precision with
             | PowerResultAndPrecision power_result precision =>
-                supply_mul_power_result = builtin mul supply power_result;
                 two_pow_precision = pow_uint256 two_uint256 precision;
-                tmp = builtin div supply_mul_power_result two_pow_precision;
+                tmp = muldiv supply power_result two_pow_precision;
                 result_uint256 = builtin sub tmp supply;
                 result = uint256_to_uint128 result_uint256;
                 SendCalculatePurchaseReturnCallback result
+            end
+        end
+    end
+end
+
+procedure SendCalculateSaleReturnCallback(result: Uint128)
+    msg = let m = {
+        _tag: "CalculateSaleReturnCallback";
+        _recipient: _sender;
+        _amount: zero_uint128;
+        result: result
+    } in one_msg m;
+    send msg
+end
+
+transition CalculateSaleReturn(in_supply: Uint128, in_connector_balance: Uint128, in_connector_weight: Uint128, in_sell_amount: Uint128)
+    
+    supply = uint128_to_uint256 in_supply;
+    connector_balance = uint128_to_uint256 in_connector_balance;
+    connector_weight = uint128_to_uint256 in_connector_weight;
+    sell_amount = uint128_to_uint256 in_sell_amount;
+    
+    AssertNotZero supply;
+    AssertNotZero connector_balance;
+    AssertNotZero connector_weight;
+    AssertIsLE connector_weight c_MAX_WEIGHT;
+    AssertIsLE sell_amount supply;
+    sell_is_zero = builtin eq sell_amount zero_uint256;
+    match sell_is_zero with
+    | True =>
+        
+        SendCalculateSaleReturnCallback zero_uint128
+    | False =>
+        selling_entire_supply = builtin eq sell_amount supply;
+        match selling_entire_supply with
+        | True => SendCalculateSaleReturnCallback in_connector_balance 
+        | False =>
+            connector_weight_is_c_MAX_WEIGHT = builtin eq connector_weight c_MAX_WEIGHT;
+            match connector_weight_is_c_MAX_WEIGHT with
+            | True =>
+                
+                result_uint256 = muldiv connector_balance sell_amount supply;
+                result = uint256_to_uint128 result_uint256;
+                SendCalculateSaleReturnCallback result
+            | False =>
+                baseD = builtin sub supply sell_amount;
+                power_result_and_precision = power supply baseD c_MAX_WEIGHT connector_weight;
+                match power_result_and_precision with
+                | PowerResultAndPrecision power_result precision =>
+                    two_pow_precision = pow_uint256 two_uint256 precision;
+                    temp1 = builtin mul connector_balance power_result;
+                    temp2 = builtin mul connector_balance two_pow_precision;
+                    temp1_sub_temp2 = builtin sub temp1 temp2;
+                    result_uint256 = builtin div temp1_sub_temp2 power_result;
+                    result = uint256_to_uint128 result_uint256;
+                    SendCalculateSaleReturnCallback result
+                end
             end
         end
     end
@@ -811,7 +866,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-19T23:05:29.890Z
+ * 2021-08-20T01:13:45.906Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {
@@ -876,6 +931,71 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               1000
             );
             log.txLink(tx, "CalculatePurchaseReturn");
+            return tx;
+          },
+        };
+      },
+
+      CalculateSaleReturn: (
+        __in_supply: T.Uint128,
+        __in_connector_balance: T.Uint128,
+        __in_connector_weight: T.Uint128,
+        __in_sell_amount: T.Uint128
+      ) => {
+        const transactionData = {
+          contractSignature,
+          contractAddress: a.toSend(),
+          contractTransitionName: `CalculateSaleReturn`,
+          data: [
+            {
+              type: `Uint128`,
+              vname: `in_supply`,
+              value: __in_supply.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_connector_balance`,
+              value: __in_connector_balance.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_connector_weight`,
+              value: __in_connector_weight.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_sell_amount`,
+              value: __in_sell_amount.toSend(),
+            },
+          ],
+          amount: new BN(0).toString(),
+        };
+        return {
+          /**
+           * get data needed to perform this transaction
+           * */
+          toJSON: () => transactionData,
+          /**
+           * send the transaction to the blockchain
+           * */
+          send: async () => {
+            const zil = getZil();
+            const gasPrice = await getMinGasPrice();
+            const contract = getContract(zil, a.toSend());
+
+            const tx = await contract.call(
+              transactionData.contractTransitionName,
+              transactionData.data,
+              {
+                version: getVersion(),
+                amount: new BN(transactionData.amount),
+                gasPrice,
+                gasLimit,
+              },
+              33,
+              1000
+            );
+            log.txLink(tx, "CalculateSaleReturn");
             return tx;
           },
         };

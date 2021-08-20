@@ -1,17 +1,14 @@
+import { saleReturnTestCases } from "../cases/saleReturnTestCases";
 import { TestingFunction, testRunner } from "../../../../scillaTest/utill";
 import { testMaker } from "../../../../scillaTest";
 import { ByStr20, Uint128 } from "../../../../boost-zil";
 import * as sdk from "../../build/bind";
 import { Long, BN } from "@zilliqa-js/util";
-import * as testCases from "../cases/purchaseReturnTestCases";
 import { getError, getGasAvg, getErrorStats } from "./utill";
 
-export const testCalculatePurchaseReturn: TestingFunction = async (
-  code,
-  ss
-) => {
+export const testCalculateSaleReturn: TestingFunction = async (code, ss) => {
   try {
-    console.log("testCalculatePurchaseReturn");
+    console.log("testCalculateSaleReturn");
     const fillerAddr = new ByStr20(
       "0x1234567890123456789012345678901234567890"
     );
@@ -23,12 +20,12 @@ export const testCalculatePurchaseReturn: TestingFunction = async (
         fillerAddr
       )(Long.fromString("100000"));
     async function runBatch(testCases: string[][]) {
-      const res = await Promise.all(
+      await Promise.all(
         testCases.map((test) =>
           run(
             make(
               bancor
-                .CalculatePurchaseReturn(
+                .CalculateSaleReturn(
                   new Uint128(test[0]),
                   new Uint128(test[1]),
                   new Uint128(test[2]),
@@ -41,9 +38,8 @@ export const testCalculatePurchaseReturn: TestingFunction = async (
         )
       );
     }
-    for (const [k, t] of Object.entries(testCases)) {
-      await runBatch(t);
-    }
+
+    await runBatch(saleReturnTestCases);
     getErrorStats(testing.getAllErrors());
     getGasAvg(testing.getAllResults());
   } catch (e) {
