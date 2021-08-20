@@ -54,19 +54,18 @@ let get_val =
 contract FungibleToken
 (
   contract_owner: ByStr20,
-  name : String,
+  name: String,
   symbol: String,
   decimals: Uint32,
-  init_supply : Uint128
+  init_supply: Uint128
 )
 
 (* Mutable fields *)
 
-field total_supply : Uint128 = init_supply
+field total_supply: Uint128 = init_supply
 
 field balances: Map ByStr20 Uint128 
-  = let emp_map = Emp ByStr20 Uint128 in
-    builtin put emp_map contract_owner init_supply
+  = Emp ByStr20 Uint128
 
 field allowances: Map ByStr20 (Map ByStr20 Uint128) 
   = Emp ByStr20 (Map ByStr20 Uint128)
