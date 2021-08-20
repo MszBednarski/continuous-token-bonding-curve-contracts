@@ -8,7 +8,7 @@ import { getError, getGasAvg, getErrorStats } from "./utill";
 
 export const testCalculateSaleReturn: TestingFunction = async (code, ss) => {
   try {
-    console.log("testCalculateSaleReturn");
+    console.log("🙌 testCalculateSaleReturn");
     const fillerAddr = new ByStr20(
       "0x1234567890123456789012345678901234567890"
     );
@@ -33,7 +33,7 @@ export const testCalculateSaleReturn: TestingFunction = async (code, ss) => {
                 )
                 .toJSON()
             ),
-            getError(test)
+            getError(test[4])
           )
         )
       );

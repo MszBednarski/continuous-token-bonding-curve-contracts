@@ -1,6 +1,7 @@
 import { ScillaServer } from "../../../scillaTest";
 import { testCalculatePurchaseReturn } from "./bancor/testCalculatePurchaseReturn";
 import { testCalculateSaleReturn } from "./bancor/testCalculateSaleReturn";
+import { testCalculateCrossConnectorReturn } from "./bancor/testCalculateCrossConnectorReturn";
 import { resolve } from "path";
 import { readFileSync } from "fs";
 
@@ -16,6 +17,7 @@ const ss = new ScillaServer(scillaServerUrl);
     );
     await testCalculatePurchaseReturn(code, ss);
     await testCalculateSaleReturn(code, ss);
+    await testCalculateCrossConnectorReturn(code, ss);
   } catch (e) {
     console.error(e);
   }

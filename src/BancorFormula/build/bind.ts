@@ -787,6 +787,54 @@ transition CalculateSaleReturn(in_supply: Uint128, in_connector_balance: Uint128
             end
         end
     end
+end
+
+procedure SendCalculateCrossConnectorReturnCallback(result: Uint128)
+    msg = let m = {
+        _tag: "CalculateCrossConnectorReturn";
+        _recipient: _sender;
+        _amount: zero_uint128;
+        result: result
+    } in one_msg m;
+    send msg
+end
+
+transition CalculateCrossConnectorReturn(in_from_connector_balance: Uint128, in_from_connector_weight: Uint128, in_to_connector_balance: Uint128, in_to_connector_weight: Uint128, in_amount: Uint128)
+    
+    from_connector_balance = uint128_to_uint256 in_from_connector_balance;
+    from_connector_weight = uint128_to_uint256 in_from_connector_weight;
+    to_connector_balance = uint128_to_uint256 in_to_connector_balance;
+    to_connector_weight = uint128_to_uint256 in_to_connector_weight;
+    amount = uint128_to_uint256 in_amount;
+    
+    AssertNotZero from_connector_balance;
+    AssertNotZero from_connector_weight;
+    AssertIsLE from_connector_weight c_MAX_WEIGHT;
+    AssertNotZero to_connector_balance;
+    AssertNotZero to_connector_weight;
+    AssertIsLE to_connector_weight c_MAX_WEIGHT;
+
+    weights_equal = builtin eq to_connector_weight from_connector_weight;
+    match weights_equal with
+    | True =>
+        from_connector_balance_add_amount = builtin add from_connector_balance amount;
+        result_uint256 = muldiv to_connector_balance amount from_connector_balance_add_amount;
+        result = uint256_to_uint128 result_uint256;
+        SendCalculateCrossConnectorReturnCallback result
+    | False =>
+        baseN = builtin add from_connector_balance amount;
+        power_result_and_precision = power baseN from_connector_balance from_connector_weight to_connector_weight;
+        match power_result_and_precision with
+        | PowerResultAndPrecision power_result precision =>
+            two_pow_precision = pow_uint256 two_uint256 precision;
+            temp1 = builtin mul to_connector_balance power_result;
+            temp2 = builtin mul to_connector_balance two_pow_precision;
+            temp1_sub_temp2 = builtin sub temp1 temp2;
+            result_uint256 = builtin div temp1_sub_temp2 power_result;
+            result = uint256_to_uint128 result_uint256;
+            SendCalculateCrossConnectorReturnCallback result
+        end 
+    end
 end`;
   const contract = newContract(zil, code, [
     {
@@ -866,7 +914,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-20T01:13:45.906Z
+ * 2021-08-20T01:44:01.441Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {
@@ -996,6 +1044,77 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               1000
             );
             log.txLink(tx, "CalculateSaleReturn");
+            return tx;
+          },
+        };
+      },
+
+      CalculateCrossConnectorReturn: (
+        __in_from_connector_balance: T.Uint128,
+        __in_from_connector_weight: T.Uint128,
+        __in_to_connector_balance: T.Uint128,
+        __in_to_connector_weight: T.Uint128,
+        __in_amount: T.Uint128
+      ) => {
+        const transactionData = {
+          contractSignature,
+          contractAddress: a.toSend(),
+          contractTransitionName: `CalculateCrossConnectorReturn`,
+          data: [
+            {
+              type: `Uint128`,
+              vname: `in_from_connector_balance`,
+              value: __in_from_connector_balance.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_from_connector_weight`,
+              value: __in_from_connector_weight.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_to_connector_balance`,
+              value: __in_to_connector_balance.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_to_connector_weight`,
+              value: __in_to_connector_weight.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `in_amount`,
+              value: __in_amount.toSend(),
+            },
+          ],
+          amount: new BN(0).toString(),
+        };
+        return {
+          /**
+           * get data needed to perform this transaction
+           * */
+          toJSON: () => transactionData,
+          /**
+           * send the transaction to the blockchain
+           * */
+          send: async () => {
+            const zil = getZil();
+            const gasPrice = await getMinGasPrice();
+            const contract = getContract(zil, a.toSend());
+
+            const tx = await contract.call(
+              transactionData.contractTransitionName,
+              transactionData.data,
+              {
+                version: getVersion(),
+                amount: new BN(transactionData.amount),
+                gasPrice,
+                gasLimit,
+              },
+              33,
+              1000
+            );
+            log.txLink(tx, "CalculateCrossConnectorReturn");
             return tx;
           },
         };

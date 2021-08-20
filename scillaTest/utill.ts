@@ -14,39 +14,10 @@ export const YELLOW = FgYellow + InjectReset;
 export const CYAN = FgCyan + InjectReset;
 export const MAGENTA = FgMagenta + InjectReset;
 
-function redIfTrue(cond: boolean, s: string) {
-  const color = cond ? FgRed : FgGreen;
-  return color + s + Reset;
-}
-
-function printLine() {
-  console.log(MAGENTA, "________________________________");
-}
-
 export type TestingFunction = (code: string, ss: ScillaServer) => Promise<void>;
 
-export function printResult(
-  scope: string,
-  testName: string,
-  result: any,
-  testBody: any
-) {
-  // testBody.code = "Removed Code";
-  // console.info(`Test: ${testName}:`);
-  process.stdout.write(
-    redIfTrue(result.result == "error", ` ${result.result}`)
-  );
-  // if (result.result != "error") {
-  //   const events = result.message.events.map((e: any) => [
-  //     e._eventname,
-  //     e.params.map((p: any) => JSON.stringify(p.value, null, 2)),
-  //   ]);
-  //   console.log(CYAN, `event: ${events}`);
-  // }
-  // if (result.result == "error") {
-  //   console.log(result.message);
-  // }
-  // printLine();
+export function printResult(result: { result: "error" | "success" }) {
+  process.stdout.write(result.result == "error" ? " ❌" : " ✅");
 }
 
 export const testRunner = (ss: ScillaServer) => (scope: string) => {
@@ -66,7 +37,7 @@ export const testRunner = (ss: ScillaServer) => (scope: string) => {
         const result = await ss.runTest({ testBody });
         allResults.push(result);
         allErrors.push({ result, error: errorEval(result) });
-        printResult(scope, "", result, testBody);
+        printResult(result);
         return result;
       } catch (e) {
         throw e;

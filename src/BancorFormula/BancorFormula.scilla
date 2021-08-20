@@ -831,3 +831,65 @@ transition CalculateSaleReturn(in_supply: Uint128, in_connector_balance: Uint128
         end
     end
 end
+
+procedure SendCalculateCrossConnectorReturnCallback(result: Uint128)
+    msg = let m = {
+        _tag: "CalculateCrossConnectorReturn";
+        _recipient: _sender;
+        _amount: zero_uint128;
+        result: result
+    } in one_msg m;
+    send msg
+end
+(*
+    @dev given two connector balances/weights and a sell amount (in the first connector token),
+    calculates the return for a conversion from the first connector token to the second connector token (in the second connector token)
+
+    Formula:
+    Return = in_to_connector_balance * (1 - (in_from_connector_balance / (in_from_connector_balance + in_amount)) ^ (in_from_connector_weight / in_to_connector_weight))
+
+    @param in_from_connector_balance    input connector balance
+    @param in_from_connector_weight     input connector weight, represented in ppm, 1-1000000
+    @param in_to_connector_balance      output connector balance
+    @param in_to_connector_weight       output connector weight, represented in ppm, 1-1000000
+    @param in_amount                  input connector amount
+
+    @return second connector amount
+*)
+transition CalculateCrossConnectorReturn(in_from_connector_balance: Uint128, in_from_connector_weight: Uint128, in_to_connector_balance: Uint128, in_to_connector_weight: Uint128, in_amount: Uint128)
+    (* convert inputs *)
+    from_connector_balance = uint128_to_uint256 in_from_connector_balance;
+    from_connector_weight = uint128_to_uint256 in_from_connector_weight;
+    to_connector_balance = uint128_to_uint256 in_to_connector_balance;
+    to_connector_weight = uint128_to_uint256 in_to_connector_weight;
+    amount = uint128_to_uint256 in_amount;
+    (* validate inputs *)
+    AssertNotZero from_connector_balance;
+    AssertNotZero from_connector_weight;
+    AssertIsLE from_connector_weight c_MAX_WEIGHT;
+    AssertNotZero to_connector_balance;
+    AssertNotZero to_connector_weight;
+    AssertIsLE to_connector_weight c_MAX_WEIGHT;
+
+    weights_equal = builtin eq to_connector_weight from_connector_weight;
+    match weights_equal with
+    | True =>
+        from_connector_balance_add_amount = builtin add from_connector_balance amount;
+        result_uint256 = muldiv to_connector_balance amount from_connector_balance_add_amount;
+        result = uint256_to_uint128 result_uint256;
+        SendCalculateCrossConnectorReturnCallback result
+    | False =>
+        baseN = builtin add from_connector_balance amount;
+        power_result_and_precision = power baseN from_connector_balance from_connector_weight to_connector_weight;
+        match power_result_and_precision with
+        | PowerResultAndPrecision power_result precision =>
+            two_pow_precision = pow_uint256 two_uint256 precision;
+            temp1 = builtin mul to_connector_balance power_result;
+            temp2 = builtin mul to_connector_balance two_pow_precision;
+            temp1_sub_temp2 = builtin sub temp1 temp2;
+            result_uint256 = builtin div temp1_sub_temp2 power_result;
+            result = uint256_to_uint128 result_uint256;
+            SendCalculateCrossConnectorReturnCallback result
+        end 
+    end
+end

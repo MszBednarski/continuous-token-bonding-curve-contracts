@@ -25,3 +25,17 @@
 | @param | `in_connector_balance` | `Uint128`          |
 | @param | `in_connector_weight` | `Uint128`          |
 | @param | `in_sell_amount` | `Uint128`          |
+
+#### CalculateCrossConnectorReturn()
+
+ @dev given two connector balances/weights and a sell amount ( in the first connector token), calculates the return for a conversion from the first connector token to the second connector token ( in the second connector token) Formula: Return = in_to_connector_balance ( 1 - ( in_from_connector_balance / ( in_from_connector_balance + in_amount)) ^ ( in_from_connector_weight / in_to_connector_weight)) @param in_from_connector_balance input connector balance @param in_from_connector_weight input connector weight, represented in ppm, 1-1000000 @param in_to_connector_balance output connector balance @param in_to_connector_weight output connector weight, represented in ppm, 1-1000000 @param in_amount input connector amount @return second connector amount transition
+
+  **Arguments:**
+
+|        | Name      | Type               |
+| ------ | --------- | ------------------ |
+| @param | `in_from_connector_balance` | `Uint128`          |
+| @param | `in_from_connector_weight` | `Uint128`          |
+| @param | `in_to_connector_balance` | `Uint128`          |
+| @param | `in_to_connector_weight` | `Uint128`          |
+| @param | `in_amount` | `Uint128`          |

@@ -22,6 +22,16 @@
           { "vname": "in_connector_weight", "type": "Uint128" },
           { "vname": "in_sell_amount", "type": "Uint128" }
         ]
+      },
+      {
+        "vname": "CalculateCrossConnectorReturn",
+        "params": [
+          { "vname": "in_from_connector_balance", "type": "Uint128" },
+          { "vname": "in_from_connector_weight", "type": "Uint128" },
+          { "vname": "in_to_connector_balance", "type": "Uint128" },
+          { "vname": "in_to_connector_weight", "type": "Uint128" },
+          { "vname": "in_amount", "type": "Uint128" }
+        ]
       }
     ],
     "procedures": [
@@ -46,6 +56,10 @@
       },
       {
         "vname": "SendCalculateSaleReturnCallback",
+        "params": [ { "vname": "result", "type": "Uint128" } ]
+      },
+      {
+        "vname": "SendCalculateCrossConnectorReturnCallback",
         "params": [ { "vname": "result", "type": "Uint128" } ]
       }
     ],
