@@ -46,6 +46,8 @@ export async function deploy(
 (* sourceCodeHashKey=hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *)
 scilla_version 0
 
+
+
 import IntUtils ListUtils
 library BancorFormula
 
@@ -835,7 +837,8 @@ transition CalculateCrossConnectorReturn(in_from_connector_balance: Uint128, in_
             SendCalculateCrossConnectorReturnCallback result
         end 
     end
-end`;
+end
+`;
   const contract = newContract(zil, code, [
     {
       type: `Uint32`,
@@ -914,7 +917,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-20T01:44:01.441Z
+ * 2021-08-21T18:50:36.961Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {

@@ -1,24 +1,59 @@
 {
   "contract_info": {
     "scilla_major_version": "0",
-    "vname": "FungibleToken",
+    "vname": "Token",
     "params": [
       { "vname": "contract_owner", "type": "ByStr20" },
       { "vname": "name", "type": "String" },
       { "vname": "symbol", "type": "String" },
       { "vname": "decimals", "type": "Uint32" },
-      { "vname": "init_supply", "type": "Uint128" }
+      { "vname": "init_supply", "type": "Uint128" },
+      {
+        "vname": "operator_contract",
+        "type":
+          "ByStr20 with contract field bancor_formula_contract : ByStr20, field beneficiary : ByStr20, field spread : Uint128 end"
+      }
     ],
     "fields": [
       { "vname": "total_supply", "type": "Uint128", "depth": 0 },
+      { "vname": "current_supply", "type": "Uint128", "depth": 0 },
       { "vname": "balances", "type": "Map (ByStr20) (Uint128)", "depth": 1 },
       {
         "vname": "allowances",
         "type": "Map (ByStr20) (Map (ByStr20) (Uint128))",
         "depth": 2
+      },
+      {
+        "vname": "connector_token_type",
+        "type": "Token.ConnectorToken",
+        "depth": 0
+      },
+      { "vname": "is_init", "type": "Bool", "depth": 0 },
+      { "vname": "tmp_reserve_ratio", "type": "Uint128", "depth": 0 },
+      { "vname": "tmp_connector_balance", "type": "Uint128", "depth": 0 },
+      { "vname": "smart_token_market_cap", "type": "Uint128", "depth": 0 },
+      { "vname": "tmp_from_balance", "type": "Uint128", "depth": 0 },
+      { "vname": "tmp_bancor_formula_result", "type": "Uint128", "depth": 0 },
+      { "vname": "tmp_is_smart_token_sell", "type": "Bool", "depth": 0 },
+      {
+        "vname": "tmp_amount_and_commission",
+        "type": "Token.Uint128Pair",
+        "depth": 0
       }
     ],
     "transitions": [
+      {
+        "vname": "Init",
+        "params": [
+          { "vname": "price", "type": "Uint128" },
+          { "vname": "connector_balance", "type": "Uint128" },
+          {
+            "vname": "token_address",
+            "type":
+              "ByStr20 with contract field balances : Map (ByStr20) (Uint128) end"
+          }
+        ]
+      },
       {
         "vname": "IncreaseAllowance",
         "params": [
@@ -47,6 +82,49 @@
           { "vname": "to", "type": "ByStr20" },
           { "vname": "amount", "type": "Uint128" }
         ]
+      },
+      {
+        "vname": "RecipientAcceptTransfer",
+        "params": [
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "RecipientAcceptTransferFrom",
+        "params": [
+          { "vname": "initiator", "type": "ByStr20" },
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "TransferSuccessCallBack",
+        "params": [
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "TransferFromSuccessCallBack",
+        "params": [
+          { "vname": "initiator", "type": "ByStr20" },
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "recipient", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      { "vname": "AddFunds", "params": [] },
+      {
+        "vname": "CalculatePurchaseReturnCallback",
+        "params": [ { "vname": "result", "type": "Uint128" } ]
+      },
+      {
+        "vname": "CalculateSaleReturnCallback",
+        "params": [ { "vname": "result", "type": "Uint128" } ]
       }
     ],
     "procedures": [
@@ -55,11 +133,114 @@
         "params": [ { "vname": "err", "type": "Token.Error" } ]
       },
       {
-        "vname": "IsNotSender",
+        "vname": "IncrementCurrentSupply",
+        "params": [ { "vname": "amt", "type": "Uint128" } ]
+      },
+      {
+        "vname": "DecrementCurrentSupply",
+        "params": [ { "vname": "amt", "type": "Uint128" } ]
+      },
+      { "vname": "AssertIsInitialized", "params": [] },
+      { "vname": "AssertIsNotInitialized", "params": [] },
+      {
+        "vname": "AssertIsLE",
+        "params": [
+          { "vname": "i1", "type": "Uint128" },
+          { "vname": "i2", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "AssertEQ",
+        "params": [
+          { "vname": "i1", "type": "Uint128" },
+          { "vname": "i2", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "AssertNotZero",
+        "params": [ { "vname": "value", "type": "Uint128" } ]
+      },
+      {
+        "vname": "AssertSenderIsAddress",
         "params": [ { "vname": "address", "type": "ByStr20" } ]
       },
       {
-        "vname": "AuthorizedMoveIfSufficientBalance",
+        "vname": "IsNotSender",
+        "params": [ { "vname": "address", "type": "ByStr20" } ]
+      },
+      { "vname": "GetConnectorBalance", "params": [] },
+      { "vname": "CalculateReserveRatio", "params": [] },
+      {
+        "vname": "GetFromBalance",
+        "params": [ { "vname": "from", "type": "ByStr20" } ]
+      },
+      {
+        "vname": "AssertCanDoTransfer",
+        "params": [
+          { "vname": "from", "type": "ByStr20" },
+          { "vname": "from_balance", "type": "Uint128" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "SubtractAmountFromFromBalance",
+        "params": [
+          { "vname": "from", "type": "ByStr20" },
+          { "vname": "from_balance", "type": "Uint128" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "AddAmountToToBalance",
+        "params": [
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "MoveBalance",
+        "params": [
+          { "vname": "from", "type": "ByStr20" },
+          { "vname": "from_balance", "type": "Uint128" },
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "CalculatePurchaseReturn",
+        "params": [ { "vname": "in_deposit_amount", "type": "Uint128" } ]
+      },
+      {
+        "vname": "CalculateSaleReturn",
+        "params": [ { "vname": "in_sell_amount", "type": "Uint128" } ]
+      },
+      {
+        "vname": "SendConnectedToken",
+        "params": [
+          { "vname": "to", "type": "ByStr20" },
+          { "vname": "amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "TakeCommission",
+        "params": [ { "vname": "amount", "type": "Uint128" } ]
+      },
+      {
+        "vname": "DoBuySmartToken",
+        "params": [
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "deposit_amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "BuySmartToken",
+        "params": [
+          { "vname": "sender", "type": "ByStr20" },
+          { "vname": "deposit_amount", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "DoTransferFrom",
         "params": [
           { "vname": "from", "type": "ByStr20" },
           { "vname": "to", "type": "ByStr20" },
@@ -109,12 +290,33 @@
         "tmap": [ { "cname": "Token.Unit", "argtypes": [] } ]
       },
       {
+        "tname": "Token.ConnectorToken",
+        "tparams": [],
+        "tmap": [
+          { "cname": "Token.ZIL", "argtypes": [] },
+          {
+            "cname": "Token.ZRC2",
+            "argtypes": [
+              "ByStr20 with contract field balances : Map (ByStr20) (Uint128) end"
+            ]
+          }
+        ]
+      },
+      {
         "tname": "Token.Error",
         "tparams": [],
         "tmap": [
           { "cname": "Token.CodeIsSender", "argtypes": [] },
           { "cname": "Token.CodeInsufficientFunds", "argtypes": [] },
-          { "cname": "Token.CodeInsufficientAllowance", "argtypes": [] }
+          { "cname": "Token.CodeInsufficientAllowance", "argtypes": [] },
+          { "cname": "Token.CodeNotInitialized", "argtypes": [] },
+          { "cname": "Token.CodeAlreadyInitialized", "argtypes": [] },
+          { "cname": "Token.CodeInputNotInBounds", "argtypes": [] },
+          { "cname": "Token.CodeInputIsZero", "argtypes": [] },
+          { "cname": "Token.CodeUnauthorized", "argtypes": [] },
+          { "cname": "Token.CodeConnectorError", "argtypes": [] },
+          { "cname": "Token.CodeNotImplemented", "argtypes": [] },
+          { "cname": "Token.CodeSupplyOverflow", "argtypes": [] }
         ]
       },
       {
@@ -123,6 +325,16 @@
         "tmap": [
           { "cname": "Some", "argtypes": [ "'A" ] },
           { "cname": "None", "argtypes": [] }
+        ]
+      },
+      {
+        "tname": "Token.Uint128Pair",
+        "tparams": [],
+        "tmap": [
+          {
+            "cname": "Token.Uint128Pair",
+            "argtypes": [ "Uint128", "Uint128" ]
+          }
         ]
       },
       {
