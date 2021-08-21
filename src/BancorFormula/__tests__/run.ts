@@ -1,13 +1,11 @@
-import { ScillaServer } from "../../../scillaTest";
+import { scillaServer } from "../../../scillaTest";
 import { testCalculatePurchaseReturn } from "./bancor/testCalculatePurchaseReturn";
 import { testCalculateSaleReturn } from "./bancor/testCalculateSaleReturn";
 import { testCalculateCrossConnectorReturn } from "./bancor/testCalculateCrossConnectorReturn";
 import { resolve } from "path";
 import { readFileSync } from "fs";
 
-const scillaServerUrl = "https://scilla-server.zilliqa.com";
 
-const ss = new ScillaServer(scillaServerUrl);
 
 (async () => {
   try {
@@ -15,9 +13,9 @@ const ss = new ScillaServer(scillaServerUrl);
       resolve(__dirname, "../BancorFormula.scilla"),
       "utf-8"
     );
-    await testCalculatePurchaseReturn(code, ss);
-    await testCalculateSaleReturn(code, ss);
-    await testCalculateCrossConnectorReturn(code, ss);
+    await testCalculatePurchaseReturn(code, scillaServer);
+    await testCalculateSaleReturn(code, scillaServer);
+    await testCalculateCrossConnectorReturn(code, scillaServer);
   } catch (e) {
     console.error(e);
   }
