@@ -36,12 +36,7 @@ export type TransactionData = {
   data: any[],
 };
 
-export async function deploy(
-  gasLimit: Long
-): Promise<[Transaction, Contract, T.ByStr20]> {
-  const zil = getZil();
-  const gasPrice = await getMinGasPrice();
-  const code = `
+export const code = `
 (* sourceCodeHash=0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *)
 (* sourceCodeHashKey=hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *)
 scilla_version 0
@@ -839,31 +834,41 @@ transition CalculateCrossConnectorReturn(in_from_connector_balance: Uint128, in_
     end
 end
 `;
-  const contract = newContract(zil, code, [
+export const deploy = (gasLimit: Long) => {
+  const initData = [
     {
       type: `Uint32`,
       vname: `_scilla_version`,
       value: "0",
     },
-  ]);
-  const [tx, con] = await contract.deploy(
-    {
-      version: getVersion(),
-      gasPrice,
-      gasLimit,
+  ];
+  return {
+    initToJSON: () => initData,
+    send: async () => {
+      const zil = getZil();
+      const gasPrice = await getMinGasPrice();
+
+      const contract = newContract(zil, code, initData);
+      const [tx, con] = await contract.deploy(
+        {
+          version: getVersion(),
+          gasPrice,
+          gasLimit,
+        },
+        33,
+        1000
+      );
+      log.txLink(tx, "Deploy");
+      if (!con.address) {
+        if (con.error) {
+          throw new Error(JSON.stringify(con.error, null, 2));
+        }
+        throw new Error("Contract failed to deploy");
+      }
+      return [tx, con, new T.ByStr20(con.address)];
     },
-    33,
-    1000
-  );
-  log.txLink(tx, "Deploy");
-  if (!con.address) {
-    if (con.error) {
-      throw new Error(JSON.stringify(con.error, null, 2));
-    }
-    throw new Error("Contract failed to deploy");
-  }
-  return [tx, con, new T.ByStr20(con.address)];
-}
+  };
+};
 
 /**
  * this string is the signature of the hash of the source code
@@ -917,7 +922,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-21T18:50:36.961Z
+ * 2021-08-21T19:23:48.972Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {
