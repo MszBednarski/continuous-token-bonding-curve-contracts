@@ -37,7 +37,8 @@ contract Operator(
     init_admin: ByStr20,
     init_bancor_formula: ByStr20,
     init_spread: Uint128,
-    max_spread: Uint128
+    max_spread: Uint128,
+    init_beneficiary: ByStr20
 )
 with
     let valid_spread = uint128_le init_spread max_spread in
@@ -48,6 +49,7 @@ field admin: ByStr20 = init_admin
 field staging_admin: Option ByStr20 = None {ByStr20}
 field bancor_formula_contract: ByStr20 = init_bancor_formula
 field spread: Uint128 = init_spread
+field beneficiary: ByStr20 = init_beneficiary
 
 procedure ThrowError(err: Error)
     e = make_error err;
@@ -97,4 +99,9 @@ transition ChangeSpread(new: Uint128)
     | True =>
         spread := new
     end
+end
+
+transition ChangeBeneficiary(new: ByStr20)
+    IsAdmin;
+    beneficiary := new
 end
