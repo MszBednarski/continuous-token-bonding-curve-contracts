@@ -27,6 +27,7 @@ type Error =
 | CodeInputNotInBounds
 | CodeInputIsZero
 | CodeUnauthorized
+| CodeConnectorError
 
 let make_error =
   fun (result : Error) =>
@@ -40,6 +41,7 @@ let make_error =
       | CodeInputNotInBounds      => Int32 -6
       | CodeInputIsZero           => Int32 -7
       | CodeUnauthorized          => Int32 -8
+      | CodeConnectorError        => Int32 -9
       end
     in
     { _exception : "Error"; code : result_code }
@@ -59,6 +61,38 @@ let get_val =
   | Some val => val
   | None => zero
   end
+
+let uint128_to_uint256: Uint128 -> Uint256 =
+  fun (x: Uint128) =>
+    let ox256 = builtin to_uint256 x in
+      match ox256 with
+      | None =>
+        (* this never happens, hence we throw a division by zero exception just in case *)
+        let zero = Uint256 0 in
+        builtin div zero zero
+      | Some x256 => x256
+      end
+
+(* calculates reserve ratio connector_balance*(fixed)//(marketcap*max) in ppm *)
+let get_reserve_ratio: Uint128 -> Uint128 -> Uint128 =
+  fun(connector_balance: Uint128) => fun(market_cap: Uint128) =>
+  (* (math.pow(2,128)-1) *)
+  let max = Uint256 340282366920938463463374607431768211456 in
+  (* (math.pow(2,128)-1) * math.pow(10,6) *)
+  let fixed = Uint256 340282366920938463463374607431768211456000000 in
+  let connector_balance_256 = uint128_to_uint256 connector_balance in
+  let market_cap_256 = uint128_to_uint256 market_cap in
+  let denom = builtin mul market_cap_256 max in
+  let num = builtin mul connector_balance_256 fixed in
+  let res_256 = builtin div num denom in
+  let ores_128 = builtin to_uint128 res_256 in
+  match ores_128 with
+  | None => 
+    (* this must never happen div by zero ! *)
+    let f2 = Uint128 42 in builtin div f2 zero
+  | Some res_128 => res_128
+  end
+
 
 type ConnectorToken =
 | ZIL
@@ -90,6 +124,15 @@ field allowances: Map ByStr20 (Map ByStr20 Uint128)
 field connector_token_type: ConnectorToken = ZIL
 
 field is_init: Bool = false
+
+(* used with procedure CalculateReserveRatio to calculate reserve ratio and retrieve it from this field *)
+field tmp_reserve_ratio: Uint128 = zero
+
+(* used with procedure GetConnectorBalance to get the connector balance! *)
+field tmp_connector_balance: Uint128 = zero
+
+(* the market cap of the smart token in terms of the connector token *)
+field smart_token_market_cap: Uint128 = zero
 
 (**************************************)
 (*             Procedures             *)
@@ -159,6 +202,34 @@ procedure IsNotSender(address: ByStr20)
   end
 end
 
+procedure GetConnectorBalance()
+  connector <- connector_token_type;
+  match connector with
+  | ZIL =>
+    connector_balance <- _balance;
+    tmp_connector_balance := connector_balance
+  | ZRC2 token_address =>
+    o_connector_balance <-& token_address.balances[_this_address];
+    match o_connector_balance with
+    | Some connector_balance => 
+      tmp_connector_balance := connector_balance 
+    | None => e = CodeConnectorError; ThrowError e
+    end
+  end
+end
+
+(* 
+  @dev: it also gets connector balance so dont need to double read if you used this!
+  calculates the reserve ratio expressed in ppm
+*)
+procedure CalculateReserveRatio()
+  market_cap <- smart_token_market_cap;
+  GetConnectorBalance; connector_balance <- tmp_connector_balance;
+  tmp = get_reserve_ratio connector_balance market_cap;
+  tmp_reserve_ratio := tmp
+end
+
+
 procedure AuthorizedMoveIfSufficientBalance(from: ByStr20, to: ByStr20, amount: Uint128)
   o_from_bal <- balances[from];
   bal = get_val o_from_bal;
@@ -204,6 +275,7 @@ transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr
   (* effectively the max market cap of this contract could be the market cap of ZIL *)
   supply <- total_supply;
   market_cap = builtin mul price supply;
+  smart_token_market_cap := market_cap;
   AssertIsLE connector_balance market_cap;
   (* determine if the connector is ZIL of ZRC2 *)
   is_zil_connector = builtin eq zeroByStr20 token_address;
