@@ -28,6 +28,7 @@ type Error =
 | CodeInputIsZero
 | CodeUnauthorized
 | CodeConnectorError
+| CodeNotImplemented
 
 let make_error =
   fun (result : Error) =>
@@ -42,6 +43,7 @@ let make_error =
       | CodeInputIsZero           => Int32 -7
       | CodeUnauthorized          => Int32 -8
       | CodeConnectorError        => Int32 -9
+      | CodeNotImplemented        => Int32 -10
       end
     in
     { _exception : "Error"; code : result_code }
@@ -183,9 +185,9 @@ procedure AssertNotZero(value: Uint128)
     end
 end
 
-procedure AssertIsOwner()
-  is_owner = builtin eq contract_owner _sender;
-  match is_owner with
+procedure AssertSenderIsAddress(address: ByStr20)
+  is_authorized = builtin eq address _sender;
+  match is_authorized with
   | True =>
   | False => e = CodeUnauthorized; ThrowError e
   end  
@@ -268,7 +270,7 @@ end
   if the ZRC2 connector is used the tokens are going to be taken using the allowance mechanism
 *)
 transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
-  AssertIsOwner;
+  AssertSenderIsAddress contract_owner;
   AssertIsNotInitialized;
   AssertNotZero connector_balance;
   (* if it overflows it means that it is too big! *)
@@ -279,8 +281,6 @@ transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr
   AssertIsLE connector_balance market_cap;
   (* determine if the connector is ZIL of ZRC2 *)
   is_zil_connector = builtin eq zeroByStr20 token_address;
-  (* need to set it here so that the transfer from callback works *)
-  is_init := true;
   match is_zil_connector with
   | True =>
     accept;
@@ -302,7 +302,8 @@ transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr
       amount: connector_balance
     } in one_msg m;
     send msg
-  end
+  end;
+  is_init := true
 end
 
 (* @dev: Increase the allowance of an approved_spender over the caller tokens. Only token_owner allowed to invoke.   *)
@@ -386,20 +387,46 @@ transition TransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
   end
 end
 
-(* ZRC-2 Callbacks, allow to receive tokens *)
+(* Transfer and AddFunds are used toBuy and sell tokens *)
 transition RecipientAcceptTransfer(sender: ByStr20, recipient: ByStr20, amount: Uint128) 
   AssertIsInitialized
 end
-transition RecipientAcceptTransferFrom(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
-  AssertIsInitialized
-end
+(*
+  The scenarios for the following are:
+  TokenConnector:
+    This is a buy endpoint;
+    Accept only messages from connectorToken
+  ZILConnector:
+    Reject All;
+*)
 transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount: Uint128) 
-  AssertIsInitialized
+  AssertIsInitialized;
+  connector <- connector_token_type;
+  match connector with
+  | ZIL => e = CodeNotImplemented; ThrowError e
+  | ZRC2 token_address =>
+    AssertSenderIsAddress token_address
+  end
+end
+(*
+  The scenarios for the following are:
+  TokenConnector:
+    Reject All;
+  ZILConnector:
+    This is a buy endpoint
+*)
+transition AddFunds() 
+  AssertIsInitialized;
+  connector <- connector_token_type;
+  match connector with
+  | ZRC2 token_address => e = CodeNotImplemented; ThrowError e
+  | ZIL =>
+  end
+end
+(* allowance mechanism is used only to init the contract reject otherwise! *)
+transition RecipientAcceptTransferFrom(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
+  AssertIsNotInitialized
 end
 transition TransferFromSuccessCallBack(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
-  AssertIsInitialized
-end
-(* Receive $ZIL native funds *)
-transition AddFunds() 
-  AssertIsInitialized
+  AssertIsNotInitialized
 end
