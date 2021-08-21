@@ -40,8 +40,13 @@ export class ScillaServer {
           "sec-fetch-site": "same-site",
         },
       });
-      const data = JSON.parse(await res.text());
-      return data;
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        return data;
+      } catch (e) {
+        console.error(text);
+      }
     } catch (e) {
       throw e;
     }

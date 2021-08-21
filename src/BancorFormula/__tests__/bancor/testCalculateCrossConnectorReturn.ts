@@ -15,13 +15,16 @@ export const testCalculateCrossConnectorReturn: TestingFunction = async (
     const fillerAddr = new ByStr20(
       "0x1234567890123456789012345678901234567890"
     );
+    const limit = Long.fromString("100000");
     const testing = testRunner(ss)("BancorFormula");
     const run = testing.runner;
-    const make = testMaker(code)("1")([])("0")([])(fillerAddr);
+    const make = testMaker(code)("1")(sdk.deploy().initToJSON())("0")([])(
+      fillerAddr
+    );
     const bancor =
       sdk.hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855(
         fillerAddr
-      )(Long.fromString("100000"));
+      )(limit);
     async function runBatch(testCases: string[][]) {
       await Promise.all(
         testCases.map((test) =>

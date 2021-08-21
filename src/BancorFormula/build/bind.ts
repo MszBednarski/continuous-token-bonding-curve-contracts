@@ -834,7 +834,7 @@ transition CalculateCrossConnectorReturn(in_from_connector_balance: Uint128, in_
     end
 end
 `;
-export const deploy = (gasLimit: Long) => {
+export const deploy = () => {
   const initData = [
     {
       type: `Uint32`,
@@ -844,7 +844,7 @@ export const deploy = (gasLimit: Long) => {
   ];
   return {
     initToJSON: () => initData,
-    send: async () => {
+    send: async (gasLimit: Long) => {
       const zil = getZil();
       const gasPrice = await getMinGasPrice();
 
@@ -922,7 +922,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-21T19:23:48.972Z
+ * 2021-08-21T19:32:18.158Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {

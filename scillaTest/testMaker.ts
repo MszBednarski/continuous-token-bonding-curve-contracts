@@ -32,11 +32,6 @@ export const testMaker =
       code: code,
       init: JSON.stringify([
         {
-          vname: "_scilla_version",
-          type: "Uint32",
-          value: "0",
-        },
-        {
           vname: "_this_address",
           type: "ByStr20",
           value: "0xabfeccdc9012345678901234567890f777567890",
