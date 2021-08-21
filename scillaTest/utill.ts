@@ -23,7 +23,7 @@ export function printResult(result: { result: "error" | "success" }) {
 
 export const testRunner = (ss: ScillaServer) => (scope: string) => {
   const allResults: any[] = [];
-  const allErrors: { result: any; error: Big }[] = [];
+  const allErrors: { result: any; error: Big | unknown }[] = [];
   return {
     getAllResults: () => {
       console.log("");
@@ -33,7 +33,11 @@ export const testRunner = (ss: ScillaServer) => (scope: string) => {
       console.log("");
       return allErrors;
     },
-    runner: async (testBody: any, errorEval: (response: any) => any) => {
+    runner: async (
+      testBody: any,
+      errorEval = (response: any) =>
+        console.log(response) as unknown as any
+    ) => {
       try {
         const result = await ss.runTest({ testBody });
         allResults.push(result);

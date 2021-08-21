@@ -5,6 +5,7 @@ import * as sdk from "../../build/bind";
 import { Long, BN } from "@zilliqa-js/util";
 import * as testCases from "../cases/purchaseReturnTestCases";
 import { getError, getErrorStats } from "./utill";
+import Big from "big.js";
 
 export const testCalculatePurchaseReturn: TestingFunction = async (
   code,
@@ -47,7 +48,7 @@ export const testCalculatePurchaseReturn: TestingFunction = async (
     for (const [k, t] of Object.entries(testCases)) {
       await runBatch(t);
     }
-    getErrorStats(testing.getAllErrors());
+    getErrorStats(testing.getAllErrors() as { result: any; error: Big }[]);
     getGasAvg(testing.getAllResults());
   } catch (e) {
     throw e;

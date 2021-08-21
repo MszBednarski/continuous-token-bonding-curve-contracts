@@ -5,6 +5,7 @@ import { ByStr20, Uint128 } from "../../../../boost-zil";
 import * as sdk from "../../build/bind";
 import { Long, BN } from "@zilliqa-js/util";
 import { getError, getErrorStats } from "./utill";
+import Big from "big.js";
 
 export const testCalculateCrossConnectorReturn: TestingFunction = async (
   code,
@@ -46,7 +47,7 @@ export const testCalculateCrossConnectorReturn: TestingFunction = async (
       );
     }
     await runBatch(crossConnectorReturnCases);
-    getErrorStats(testing.getAllErrors());
+    getErrorStats(testing.getAllErrors() as { result: any; error: Big }[]);
     getGasAvg(testing.getAllResults());
   } catch (e) {
     throw e;
