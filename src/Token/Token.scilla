@@ -4,7 +4,7 @@ scilla_version 0
 (*               Associated library                *)
 (***************************************************)
 import IntUtils
-library FungibleToken
+library Token
 
 let one_msg = 
   fun (msg : Message) => 
@@ -22,6 +22,11 @@ type Error =
 | CodeIsSender
 | CodeInsufficientFunds
 | CodeInsufficientAllowance
+| CodeNotInitialized
+| CodeAlreadyInitialized
+| CodeInputNotInBounds
+| CodeInputIsZero
+| CodeUnauthorized
 
 let make_error =
   fun (result : Error) =>
@@ -30,11 +35,19 @@ let make_error =
       | CodeIsSender              => Int32 -1
       | CodeInsufficientFunds     => Int32 -2
       | CodeInsufficientAllowance => Int32 -3
+      | CodeNotInitialized        => Int32 -4
+      | CodeAlreadyInitialized    => Int32 -5
+      | CodeInputNotInBounds      => Int32 -6
+      | CodeInputIsZero           => Int32 -7
+      | CodeUnauthorized          => Int32 -8
       end
     in
     { _exception : "Error"; code : result_code }
   
 let zero = Uint128 0
+let zeroByStr20 = 0x0000000000000000000000000000000000000000
+let false = False
+let true = True
 
 (* Dummy user-defined ADT *)
 type Unit =
@@ -47,11 +60,15 @@ let get_val =
   | None => zero
   end
 
+type ConnectorToken =
+| ZIL
+| ZRC2 of ByStr20 with contract field balances: Map ByStr20 Uint128 end 
+
 (***************************************************)
 (*             The contract definition             *)
 (***************************************************)
 
-contract FungibleToken
+contract Token
 (
   contract_owner: ByStr20,
   name: String,
@@ -70,6 +87,10 @@ field balances: Map ByStr20 Uint128
 field allowances: Map ByStr20 (Map ByStr20 Uint128) 
   = Emp ByStr20 (Map ByStr20 Uint128)
 
+field connector_token_type: ConnectorToken = ZIL
+
+field is_init: Bool = false
+
 (**************************************)
 (*             Procedures             *)
 (**************************************)
@@ -78,6 +99,55 @@ procedure ThrowError(err : Error)
   e = make_error err;
   throw e
 end
+
+procedure AssertIsInitialized()
+  init <- is_init;
+  match init with
+  | True =>
+  | False => e = CodeNotInitialized; ThrowError e
+  end
+end
+
+procedure AssertIsNotInitialized()
+  init <- is_init;
+  match init with
+  | False =>
+  | True => e = CodeAlreadyInitialized; ThrowError e
+  end
+end
+
+procedure AssertIsLE(i1: Uint128, i2: Uint128)
+    is_le = uint128_le i1 i2;
+    match is_le with
+    | False => e = CodeInputNotInBounds; ThrowError e
+    | True =>
+    end
+end
+
+procedure AssertEQ(i1: Uint128, i2: Uint128)
+    is_le = builtin eq i1 i2;
+    match is_le with
+    | False => e = CodeInputNotInBounds; ThrowError e
+    | True =>
+    end
+end
+
+procedure AssertNotZero(value: Uint128)
+    is_zero = builtin eq zero value;
+    match is_zero with
+    | False => 
+    | True => e = CodeInputIsZero; ThrowError e
+    end
+end
+
+procedure AssertIsOwner()
+  is_owner = builtin eq contract_owner _sender;
+  match is_owner with
+  | True =>
+  | False => e = CodeUnauthorized; ThrowError e
+  end  
+end
+
 
 procedure IsNotSender(address: ByStr20)
   is_sender = builtin eq _sender address;
@@ -116,10 +186,58 @@ end
 (*             Transitions             *)
 (***************************************)
 
+(*
+  @dev: Initializes the contract, the contract can be initalized only once
+  @param price: the price of 1 uint of the token, not the conceptual 1 uint * 10^decimals
+  but the literal 1 unit in terms of the connector token
+  @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract!
+  where CW = connector_balance / (total_supply * price)
+  @param token_address: if it is zeroByStr20 then ZIL connector token is assumed;
+  if it is set then ZRC2 connector token is assumed
+  if the ZRC2 connector is used the tokens are going to be taken using the allowance mechanism
+*)
+transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
+  AssertIsOwner;
+  AssertIsNotInitialized;
+  AssertNotZero connector_balance;
+  (* if it overflows it means that it is too big! *)
+  (* effectively the max market cap of this contract could be the market cap of ZIL *)
+  supply <- total_supply;
+  market_cap = builtin mul price supply;
+  AssertIsLE connector_balance market_cap;
+  (* determine if the connector is ZIL of ZRC2 *)
+  is_zil_connector = builtin eq zeroByStr20 token_address;
+  (* need to set it here so that the transfer from callback works *)
+  is_init := true;
+  match is_zil_connector with
+  | True =>
+    accept;
+    tmp = ZIL;
+    connector_token_type := tmp;
+    bal <- _balance;
+    (* if this is wrong there might have been an error while passing params *)
+    AssertEQ bal connector_balance
+  | False =>
+    tmp = ZRC2 token_address;
+    connector_token_type := tmp;
+    (* Assert EQ is done by the ZRC2 *)
+    msg = let m = {
+      _tag: "TransferFrom";
+      _amount: zero;
+      _recipient: token_address;
+      from: _sender;
+      to: _this_address;
+      amount: connector_balance
+    } in one_msg m;
+    send msg
+  end
+end
+
 (* @dev: Increase the allowance of an approved_spender over the caller tokens. Only token_owner allowed to invoke.   *)
 (* param spender:      Address of the designated approved_spender.                                                   *)
 (* param amount:       Number of tokens to be increased as allowance for the approved_spender.                       *)
 transition IncreaseAllowance(spender: ByStr20, amount: Uint128)
+  AssertIsInitialized;
   IsNotSender spender;
   some_current_allowance <- allowances[_sender][spender];
   current_allowance = get_val some_current_allowance;
@@ -133,6 +251,7 @@ end
 (* param spender:      Address of the designated approved_spender.                                                 *)
 (* param amount:       Number of tokens to be decreased as allowance for the approved_spender.                     *)
 transition DecreaseAllowance(spender: ByStr20, amount: Uint128)
+  AssertIsInitialized;
   IsNotSender spender;
   some_current_allowance <- allowances[_sender][spender];
   current_allowance = get_val some_current_allowance;
@@ -152,6 +271,7 @@ end
 (* @param to:  Address of the recipient whose balance is increased.                 *)
 (* @param amount:     Amount of tokens to be sent.                                  *)
 transition Transfer(to: ByStr20, amount: Uint128)
+  AssertIsInitialized;
   AuthorizedMoveIfSufficientBalance _sender to amount;
   e = {_eventname : "TransferSuccess"; sender : _sender; recipient : to; amount : amount};
   event e;
@@ -170,6 +290,7 @@ end
 (* @param to:      Address of the recipient whose balance is increased.                                                                   *)
 (* @param amount:  Amount of tokens to be transferred.                                                                                    *)
 transition TransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
+  AssertIsInitialized;
   o_spender_allowed <- allowances[from][_sender];
   allowed = get_val o_spender_allowed;
   can_do = uint128_le amount allowed;
@@ -191,4 +312,22 @@ transition TransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
     err = CodeInsufficientAllowance;
     ThrowError err
   end
+end
+
+(* ZRC-2 Callbacks, allow to receive tokens *)
+transition RecipientAcceptTransfer(sender: ByStr20, recipient: ByStr20, amount: Uint128) 
+  AssertIsInitialized
+end
+transition RecipientAcceptTransferFrom(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
+  AssertIsInitialized
+end
+transition TransferSuccessCallBack(sender: ByStr20, recipient: ByStr20, amount: Uint128) 
+  AssertIsInitialized
+end
+transition TransferFromSuccessCallBack(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
+  AssertIsInitialized
+end
+(* Receive $ZIL native funds *)
+transition AddFunds() 
+  AssertIsInitialized
 end
