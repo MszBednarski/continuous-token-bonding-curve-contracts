@@ -17,17 +17,6 @@ export const getError = (expected:string) => (res: any) => {
   }
 };
 
-export function getGasAvg(results: any[]) {
-  const limit = new BN("100000");
-  console.log(
-    `Average gas across ${results.length} tests: `,
-    results
-      .map((r) => limit.sub(new BN(r.message.gas_remaining)))
-      .reduce((prev, cur) => prev.add(cur), new BN(0))
-      .div(new BN(results.length))
-      .toString()
-  );
-}
 export function getErrorStats(errors: { error: Big; result: any }[]) {
   let perfectCount = 0;
   let maxErr = new Big("-33333333");

@@ -1,5 +1,6 @@
 import Big from "big.js";
 import { ScillaServer } from ".";
+import { BN } from "@zilliqa-js/zilliqa";
 
 const FgRed = "\x1b[31m";
 const FgGreen = "\x1b[32m";
@@ -45,3 +46,15 @@ export const testRunner = (ss: ScillaServer) => (scope: string) => {
     },
   };
 };
+
+export function getGasAvg(results: any[]) {
+  const limit = new BN("100000");
+  console.log(
+    `Average gas across ${results.length} tests: `,
+    results
+      .map((r) => limit.sub(new BN(r.message.gas_remaining)))
+      .reduce((prev, cur) => prev.add(cur), new BN(0))
+      .div(new BN(results.length))
+      .toString()
+  );
+}

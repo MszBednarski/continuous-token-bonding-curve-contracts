@@ -1,10 +1,10 @@
 import { TestingFunction, testRunner } from "../../../../scillaTest/utill";
-import { testMaker } from "../../../../scillaTest";
+import { testMaker, getGasAvg } from "../../../../scillaTest";
 import { ByStr20, Uint128 } from "../../../../boost-zil";
 import * as sdk from "../../build/bind";
 import { Long, BN } from "@zilliqa-js/util";
 import * as testCases from "../cases/purchaseReturnTestCases";
-import { getError, getGasAvg, getErrorStats } from "./utill";
+import { getError, getErrorStats } from "./utill";
 
 export const testCalculatePurchaseReturn: TestingFunction = async (
   code,
