@@ -1,4 +1,10 @@
 scilla_version 0
+(* 
+  Authors: Mateusz Bednarski https://github.com/MszBednarski 
+  and bancor people:
+  https://github.com/AragonBlack/fundraising/blob/master/apps/bancor-formula/contracts/BancorFormula.sol
+*)
+
 
 import IntUtils ListUtils
 library BancorFormula

@@ -1,4 +1,9 @@
 scilla_version 0
+(* 
+  Authors: Mateusz Bednarski https://github.com/MszBednarski 
+  and ZRC-2 standard people:
+  https://github.com/Zilliqa/ZRC/blob/master/zrcs/zrc-2.md
+*)
 
 (***************************************************)
 (*               Associated library                *)
@@ -102,6 +107,45 @@ type ConnectorToken =
 | ZIL
 | ZRC2 of ByStr20 with contract field balances: Map ByStr20 Uint128 end 
 
+let spread_denominator = Uint128 10000
+
+type Uint128Pair =
+| Uint128Pair of Uint128 Uint128
+let uint128_to_uint256 : Uint128 -> Uint256 =
+  fun (x : Uint128) =>
+    let ox256 = builtin to_uint256 x in
+      match ox256 with
+      | None =>
+        
+        let zero = Uint256 0 in
+        builtin div zero zero
+      | Some x256 => x256
+      end
+let muldiv: Uint128 -> Uint128 -> Uint128 -> Uint128 =
+    fun (x : Uint128) =>
+    fun (y : Uint128) =>
+    fun (z : Uint128) =>
+      let x256 = uint128_to_uint256 x in
+      let y256 = uint128_to_uint256 y in
+      let z256 = uint128_to_uint256 z in
+      let x_mul_y256 = builtin mul x256 y256 in
+      let res256 = builtin div x_mul_y256 z256 in
+      let ores128 = builtin to_uint128 res256 in
+      match ores128 with
+      | None =>
+        
+        let max_uint128 = Uint128 340282366920938463463374607431768211455 in
+        let fourtytwo128 = Uint128 42 in
+        builtin mul max_uint128 fourtytwo128
+      | Some res128 =>
+        res128
+      end
+let take_percentage_commission: Uint128 -> Uint128 -> Uint128Pair =
+    fun (amount: Uint128) => fun (spread_numerator: Uint128) =>
+    let commission = muldiv amount spread_numerator spread_denominator in
+    let amount_sub_commission = builtin sub amount commission in
+    let res = Uint128Pair amount_sub_commission commission in
+    res
 (***************************************************)
 (*             The contract definition             *)
 (***************************************************)
@@ -113,7 +157,7 @@ contract Token
   symbol: String,
   decimals: Uint32,
   init_supply: Uint128,
-  operator_contract: ByStr20 with contract field bancor_formula_contract: ByStr20 end
+  operator_contract: ByStr20 with contract field bancor_formula_contract: ByStr20, field spread: Uint128, field beneficiary: ByStr20 end
 )
 
 (* Mutable fields *)
@@ -149,6 +193,9 @@ field tmp_bancor_formula_result: Uint128 = zero
 
 (* used with @Transfer and @TransferFrom to package transfer code into a procedure *)
 field tmp_is_smart_token_sell: Bool = false
+
+(* used with @TakeCommission to get the amount and commission numbers *)
+field tmp_amount_and_commission: Uint128Pair = Uint128Pair zero zero
 
 (**************************************)
 (*             Procedures             *)
@@ -362,10 +409,31 @@ procedure SendConnectedToken(to: ByStr20, amount: Uint128)
   end
 end
 
-procedure BuySmartToken(sender: ByStr20, deposit_amount: Uint128)
+procedure TakeCommission(amount: Uint128)
+  spread <-& operator_contract.spread;
+  tmp = take_percentage_commission amount spread;
+  tmp_amount_and_commission := tmp
+end
+
+procedure DoBuySmartToken(sender: ByStr20, deposit_amount: Uint128)
   CalculatePurchaseReturn deposit_amount; to_add <- tmp_bancor_formula_result;
   AddAmountToToBalance sender to_add;
   IncrementCurrentSupply to_add
+end
+
+procedure BuySmartToken(sender: ByStr20, deposit_amount: Uint128)
+  TakeCommission deposit_amount; amount_and_commission <- tmp_amount_and_commission;
+  match amount_and_commission with
+  | Uint128Pair new_amt commission =>
+    is_zero = builtin eq commission zero;
+    match is_zero with
+    | True => DoBuySmartToken sender deposit_amount
+    | False => 
+      beneficiary <-& operator_contract.beneficiary;
+      SendConnectedToken beneficiary commission;
+      DoBuySmartToken sender new_amt
+    end
+  end
 end
 
 (***************************************)

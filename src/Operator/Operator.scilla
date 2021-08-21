@@ -1,7 +1,8 @@
 scilla_version 0
+(* Author: Mateusz Bednarski https://github.com/MszBednarski *)
 
 import IntUtils BoolUtils
-library Reputation
+library Operator
 type Error =
 | NotAuthorized
 | NoStagedAdmin
