@@ -439,18 +439,14 @@ end
 (***************************************)
 (*             Transitions             *)
 (***************************************)
-
 (*
   @dev: Initializes the contract, the contract can be initalized only once
   @param price: the price of 1 uint of the token, not the conceptual 1 uint * 10^decimals
   but the literal 1 unit in terms of the connector token
   @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract!
   where CW = connector_balance / (total_supply * price)
-  @param token_address: if it is zeroByStr20 then ZIL connector token is assumed;
-  if it is set then ZRC2 connector token is assumed
-  if the ZRC2 connector is used the tokens are going to be taken using the allowance mechanism
 *)
-transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
+transition InitZIL(price: Uint128, connector_balance: Uint128)
   AssertSenderIsAddress contract_owner;
   AssertIsNotInitialized;
   AssertNotZero connector_balance;
@@ -460,30 +456,45 @@ transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr
   market_cap = builtin mul price supply;
   smart_token_market_cap := market_cap;
   AssertIsLE connector_balance market_cap;
-  (* determine if the connector is ZIL of ZRC2 *)
-  is_zil_connector = builtin eq zeroByStr20 token_address;
-  match is_zil_connector with
-  | True =>
-    accept;
-    tmp = ZIL;
-    connector_token_type := tmp;
-    bal <- _balance;
-    (* if this is wrong there might have been an error while passing params *)
-    AssertEQ bal connector_balance
-  | False =>
-    tmp = ZRC2 token_address;
-    connector_token_type := tmp;
-    (* Assert EQ is done by the ZRC2 *)
-    msg = let m = {
-      _tag: "TransferFrom";
-      _amount: zero;
-      _recipient: token_address;
-      from: _sender;
-      to: _this_address;
-      amount: connector_balance
-    } in one_msg m;
-    send msg
-  end;
+  accept;
+  tmp = ZIL;
+  connector_token_type := tmp;
+  bal <- _balance;
+  (* if this is wrong there might have been an error while passing params *)
+  AssertEQ bal connector_balance;
+  is_init := true
+end
+(*
+  @dev: Initializes the contract, the contract can be initalized only once
+  @param price: the price of 1 uint of the token, not the conceptual 1 uint * 10^decimals
+  but the literal 1 unit in terms of the connector token
+  @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract!
+  where CW = connector_balance / (total_supply * price)
+  @param token_address: if it is zeroByStr20 then ZIL connector token is assumed;
+  tokens are going to be taken using the allowance mechanism
+*)
+transition InitZRC2(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
+  AssertSenderIsAddress contract_owner;
+  AssertIsNotInitialized;
+  AssertNotZero connector_balance;
+  (* if it overflows it means that it is too big! *)
+  (* effectively the max market cap of this contract could be the market cap of ZIL *)
+  supply <- total_supply;
+  market_cap = builtin mul price supply;
+  smart_token_market_cap := market_cap;
+  AssertIsLE connector_balance market_cap;
+  tmp = ZRC2 token_address;
+  connector_token_type := tmp;
+  (* Assert EQ is done by the ZRC2 *)
+  msg = let m = {
+    _tag: "TransferFrom";
+    _amount: zero;
+    _recipient: token_address;
+    from: _sender;
+    to: _this_address;
+    amount: connector_balance
+  } in one_msg m;
+  send msg;
   is_init := true
 end
 
