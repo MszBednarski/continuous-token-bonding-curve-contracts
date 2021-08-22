@@ -1,8 +1,19 @@
 # I. Token documentation
 
-#### Init()
+#### InitZIL()
 
- Transitions @dev: Initializes the contract, the contract can be initalized only once @param price: the price of 1 uint of the token, not the conceptual 1 uint 10^decimals but the literal 1 unit in terms of the connector token @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract! where CW = connector_balance / ( total_supply price) @param token_address: if it is zeroByStr20 then ZIL connector token is assumed ; if it is set then ZRC2 connector token is assumed if the ZRC2 connector is used the tokens are going to be taken using the allowance mechanism transition
+ Transitions @dev: Initializes the contract, the contract can be initalized only once @param price: the price of 1 uint of the token, not the conceptual 1 uint 10^decimals but the literal 1 unit in terms of the connector token @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract! where CW = connector_balance / ( total_supply price) transition
+
+  **Arguments:**
+
+|        | Name      | Type               |
+| ------ | --------- | ------------------ |
+| @param | `price` | `Uint128`          |
+| @param | `connector_balance` | `Uint128`          |
+
+#### InitZRC2()
+
+ @dev: Initializes the contract, the contract can be initalized only once @param price: the price of 1 uint of the token, not the conceptual 1 uint 10^decimals but the literal 1 unit in terms of the connector token @param connector_balance: the initial balance of the connector that effectively sets the CW of the contract! where CW = connector_balance / ( total_supply price) @param token_address: if it is zeroByStr20 then ZIL connector token is assumed ; tokens are going to be taken using the allowance mechanism transition
 
   **Arguments:**
 

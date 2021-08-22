@@ -187,9 +187,9 @@ field smart_token_market_cap: Uint128 = zero
 (* used with GetFromBalance to get the from balance *)
 field tmp_from_balance: Uint128 = zero
 
-(* used with bancor formula contract to store the result of its calculation! It is set in the callbacks *)
+(* used with bancor formula contract to send the result of the calculation to the right user *)
 (* @CalculatePurchaseReturnCallback  *)
-field tmp_bancor_formula_result: Uint128 = zero
+field tmp_bancor_formula_target: ByStr20 = zeroByStr20
 
 (* used with @Transfer and @TransferFrom to package transfer code into a procedure *)
 field tmp_is_smart_token_sell: Bool = false
@@ -416,9 +416,8 @@ procedure TakeCommission(amount: Uint128)
 end
 
 procedure DoBuySmartToken(sender: ByStr20, deposit_amount: Uint128)
-  CalculatePurchaseReturn deposit_amount; to_add <- tmp_bancor_formula_result;
-  AddAmountToToBalance sender to_add;
-  IncrementCurrentSupply to_add
+  tmp_bancor_formula_target := sender;
+  CalculatePurchaseReturn deposit_amount
 end
 
 procedure BuySmartToken(sender: ByStr20, deposit_amount: Uint128)
@@ -542,8 +541,8 @@ procedure DoTransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
     SubtractAmountFromFromBalance from from_balance amount;
     DecrementCurrentSupply amount;
     (* send back connected token *)
-    CalculateSaleReturn amount; send_back <- tmp_bancor_formula_result;
-    SendConnectedToken from send_back
+    tmp_bancor_formula_target := from;
+    CalculateSaleReturn amount
   | False =>
     MoveBalance from from_balance to amount
   end
@@ -677,9 +676,16 @@ end
 (* those callbacks are called by the bancor formula contract and set the tmp result *)
 (* essentially those are return values from the module that is the bancor formula *)
 transition CalculatePurchaseReturnCallback(result: Uint128)
-  tmp_bancor_formula_result := result
+  target <- tmp_bancor_formula_target;
+  bancor <-& operator_contract.bancor_formula_contract;
+  AssertSenderIsAddress bancor;
+  AddAmountToToBalance target result;
+  IncrementCurrentSupply result
 end
 
 transition CalculateSaleReturnCallback(result: Uint128)
-  tmp_bancor_formula_result := result
+  target <- tmp_bancor_formula_target;
+  bancor <-& operator_contract.bancor_formula_contract;
+  AssertSenderIsAddress bancor;
+  SendConnectedToken target result
 end

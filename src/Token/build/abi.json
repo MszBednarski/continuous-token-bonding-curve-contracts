@@ -33,7 +33,7 @@
       { "vname": "tmp_connector_balance", "type": "Uint128", "depth": 0 },
       { "vname": "smart_token_market_cap", "type": "Uint128", "depth": 0 },
       { "vname": "tmp_from_balance", "type": "Uint128", "depth": 0 },
-      { "vname": "tmp_bancor_formula_result", "type": "Uint128", "depth": 0 },
+      { "vname": "tmp_bancor_formula_target", "type": "ByStr20", "depth": 0 },
       { "vname": "tmp_is_smart_token_sell", "type": "Bool", "depth": 0 },
       {
         "vname": "tmp_amount_and_commission",
@@ -43,7 +43,14 @@
     ],
     "transitions": [
       {
-        "vname": "Init",
+        "vname": "InitZIL",
+        "params": [
+          { "vname": "price", "type": "Uint128" },
+          { "vname": "connector_balance", "type": "Uint128" }
+        ]
+      },
+      {
+        "vname": "InitZRC2",
         "params": [
           { "vname": "price", "type": "Uint128" },
           { "vname": "connector_balance", "type": "Uint128" },

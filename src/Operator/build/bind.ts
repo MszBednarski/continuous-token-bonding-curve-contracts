@@ -262,7 +262,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-22T13:24:08.404Z
+ * 2021-08-22T16:42:40.262Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => ({
@@ -287,8 +287,13 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
           | "bancor_formula_contract"
           | "spread"
           | "beneficiary"
+          | "_balance"
       ) {
         const zil = getZil();
+        if (field == "_balance") {
+          console.log((await zil.blockchain.getBalance(a.toSend())).result);
+          return;
+        }
         console.log(
           (await zil.blockchain.getSmartContractSubState(a.toSend(), field))
             .result

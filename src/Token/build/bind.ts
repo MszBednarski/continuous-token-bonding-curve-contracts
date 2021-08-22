@@ -226,7 +226,7 @@ field tmp_from_balance: Uint128 = zero
 
 
 
-field tmp_bancor_formula_result: Uint128 = zero
+field tmp_bancor_formula_target: ByStr20 = zeroByStr20
 
 
 field tmp_is_smart_token_sell: Bool = false
@@ -450,9 +450,8 @@ procedure TakeCommission(amount: Uint128)
 end
 
 procedure DoBuySmartToken(sender: ByStr20, deposit_amount: Uint128)
-  CalculatePurchaseReturn deposit_amount; to_add <- tmp_bancor_formula_result;
-  AddAmountToToBalance sender to_add;
-  IncrementCurrentSupply to_add
+  tmp_bancor_formula_target := sender;
+  CalculatePurchaseReturn deposit_amount
 end
 
 procedure BuySmartToken(sender: ByStr20, deposit_amount: Uint128)
@@ -474,8 +473,7 @@ end
 
 
 
-
-transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
+transition InitZIL(price: Uint128, connector_balance: Uint128)
   AssertSenderIsAddress contract_owner;
   AssertIsNotInitialized;
   AssertNotZero connector_balance;
@@ -485,30 +483,37 @@ transition Init(price: Uint128, connector_balance: Uint128, token_address: ByStr
   market_cap = builtin mul price supply;
   smart_token_market_cap := market_cap;
   AssertIsLE connector_balance market_cap;
+  accept;
+  tmp = ZIL;
+  connector_token_type := tmp;
+  bal <- _balance;
   
-  is_zil_connector = builtin eq zeroByStr20 token_address;
-  match is_zil_connector with
-  | True =>
-    accept;
-    tmp = ZIL;
-    connector_token_type := tmp;
-    bal <- _balance;
-    
-    AssertEQ bal connector_balance
-  | False =>
-    tmp = ZRC2 token_address;
-    connector_token_type := tmp;
-    
-    msg = let m = {
-      _tag: "TransferFrom";
-      _amount: zero;
-      _recipient: token_address;
-      from: _sender;
-      to: _this_address;
-      amount: connector_balance
-    } in one_msg m;
-    send msg
-  end;
+  AssertEQ bal connector_balance;
+  is_init := true
+end
+
+transition InitZRC2(price: Uint128, connector_balance: Uint128, token_address: ByStr20 with contract field balances: Map ByStr20 Uint128 end)
+  AssertSenderIsAddress contract_owner;
+  AssertIsNotInitialized;
+  AssertNotZero connector_balance;
+  
+  
+  supply <- total_supply;
+  market_cap = builtin mul price supply;
+  smart_token_market_cap := market_cap;
+  AssertIsLE connector_balance market_cap;
+  tmp = ZRC2 token_address;
+  connector_token_type := tmp;
+  
+  msg = let m = {
+    _tag: "TransferFrom";
+    _amount: zero;
+    _recipient: token_address;
+    from: _sender;
+    to: _this_address;
+    amount: connector_balance
+  } in one_msg m;
+  send msg;
   is_init := true
 end
 
@@ -556,8 +561,8 @@ procedure DoTransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
     SubtractAmountFromFromBalance from from_balance amount;
     DecrementCurrentSupply amount;
     
-    CalculateSaleReturn amount; send_back <- tmp_bancor_formula_result;
-    SendConnectedToken from send_back
+    tmp_bancor_formula_target := from;
+    CalculateSaleReturn amount
   | False =>
     MoveBalance from from_balance to amount
   end
@@ -675,11 +680,18 @@ end
 
 
 transition CalculatePurchaseReturnCallback(result: Uint128)
-  tmp_bancor_formula_result := result
+  target <- tmp_bancor_formula_target;
+  bancor <-& operator_contract.bancor_formula_contract;
+  AssertSenderIsAddress bancor;
+  AddAmountToToBalance target result;
+  IncrementCurrentSupply result
 end
 
 transition CalculateSaleReturnCallback(result: Uint128)
-  tmp_bancor_formula_result := result
+  target <- tmp_bancor_formula_target;
+  bancor <-& operator_contract.bancor_formula_contract;
+  AssertSenderIsAddress bancor;
+  SendConnectedToken target result
 end`;
 export const deploy = (
   __contract_owner: T.ByStr20,
@@ -808,7 +820,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-22T13:24:16.910Z
+ * 2021-08-22T16:42:36.444Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => ({
@@ -825,7 +837,7 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
           | "tmp_connector_balance"
           | "smart_token_market_cap"
           | "tmp_from_balance"
-          | "tmp_bancor_formula_result"
+          | "tmp_bancor_formula_target"
           | "tmp_is_smart_token_sell"
           | "tmp_amount_and_commission"
       ) {
@@ -846,11 +858,16 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
           | "tmp_connector_balance"
           | "smart_token_market_cap"
           | "tmp_from_balance"
-          | "tmp_bancor_formula_result"
+          | "tmp_bancor_formula_target"
           | "tmp_is_smart_token_sell"
           | "tmp_amount_and_commission"
+          | "_balance"
       ) {
         const zil = getZil();
+        if (field == "_balance") {
+          console.log((await zil.blockchain.getBalance(a.toSend())).result);
+          return;
+        }
         console.log(
           (await zil.blockchain.getSmartContractSubState(a.toSend(), field))
             .result
@@ -858,16 +875,15 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
       },
     }),
     run: (gasLimit: Long) => ({
-      Init: (
+      InitZIL: (
         amount: T.Uint128,
         __price: T.Uint128,
-        __connector_balance: T.Uint128,
-        __token_address: T.ByStr20
+        __connector_balance: T.Uint128
       ) => {
         const transactionData = {
           contractSignature,
           contractAddress: a.toSend(),
-          contractTransitionName: `Init`,
+          contractTransitionName: `InitZIL`,
           data: [
             {
               type: `Uint128`,
@@ -878,11 +894,6 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               type: `Uint128`,
               vname: `connector_balance`,
               value: __connector_balance.toSend(),
-            },
-            {
-              type: `ByStr20`,
-              vname: `token_address`,
-              value: __token_address.toSend(),
             },
           ],
           amount: amount.value.toString(),
@@ -912,7 +923,66 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               33,
               1000
             );
-            log.txLink(tx, "Init");
+            log.txLink(tx, "InitZIL");
+            return tx;
+          },
+        };
+      },
+
+      InitZRC2: (
+        __price: T.Uint128,
+        __connector_balance: T.Uint128,
+        __token_address: T.ByStr20
+      ) => {
+        const transactionData = {
+          contractSignature,
+          contractAddress: a.toSend(),
+          contractTransitionName: `InitZRC2`,
+          data: [
+            {
+              type: `Uint128`,
+              vname: `price`,
+              value: __price.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `connector_balance`,
+              value: __connector_balance.toSend(),
+            },
+            {
+              type: `ByStr20`,
+              vname: `token_address`,
+              value: __token_address.toSend(),
+            },
+          ],
+          amount: new BN(0).toString(),
+        };
+        return {
+          /**
+           * get data needed to perform this transaction
+           * */
+          toJSON: () => transactionData,
+          /**
+           * send the transaction to the blockchain
+           * */
+          send: async () => {
+            const zil = getZil();
+            const gasPrice = await getMinGasPrice();
+            const contract = getContract(zil, a.toSend());
+
+            const tx = await contract.call(
+              transactionData.contractTransitionName,
+              transactionData.data,
+              {
+                version: getVersion(),
+                amount: new BN(transactionData.amount),
+                gasPrice,
+                gasLimit,
+              },
+              33,
+              1000
+            );
+            log.txLink(tx, "InitZRC2");
             return tx;
           },
         };
