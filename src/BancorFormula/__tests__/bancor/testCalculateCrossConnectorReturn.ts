@@ -22,10 +22,11 @@ export const testCalculateCrossConnectorReturn: TestingFunction = async (
     const make = testMaker(code)("1")(sdk.deploy().initToJSON())("0")([])(
       fillerAddr
     );
-    const bancor =
-      sdk.hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855(
+    const bancor = sdk
+      .hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855(
         fillerAddr
-      )(limit);
+      )
+      .run(limit);
     async function runBatch(testCases: string[][]) {
       await Promise.all(
         testCases.map((test) =>

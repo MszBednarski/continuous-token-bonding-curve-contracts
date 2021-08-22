@@ -1,5 +1,4 @@
-import { TestingFunction, testRunner } from "../../../scillaTest/utill";
-import { testMaker, getGasAvg } from "../../../scillaTest";
+import { TestingFunction } from "../../../scillaTest/utill";
 import {
   ByStr20,
   Uint128,
@@ -10,14 +9,9 @@ import {
   getZil,
 } from "../../../boost-zil";
 import * as tokenSDK from "../build/bind";
-import * as operatorSDK from "../../Operator/build/bind";
-import * as formulaSDK from "../../BancorFormula/build/bind";
-import { Long, BN } from "@zilliqa-js/util";
-import { units } from "@zilliqa-js/zilliqa";
-
-function zils(s: string) {
-  return new Uint128(units.toQa(s, units.Units.Zil));
-}
+import { Long } from "@zilliqa-js/util";
+import { zils } from "./utils";
+import { deployFormulaAndOperator } from "./shared";
 
 export const testDeployAndInitTokenWithZIL: TestingFunction = async (
   code,
@@ -31,16 +25,7 @@ export const testDeployAndInitTokenWithZIL: TestingFunction = async (
     );
     const adminAddr = new ByStr20(admin.address);
     const limit = Long.fromString("100000");
-    const [, , formulaAddr] = await formulaSDK.deploy().send(limit);
-    const [, , operatorAddr] = await operatorSDK
-      .deploy(
-        adminAddr,
-        formulaAddr,
-        new Uint128("10"), // 1% spread
-        new Uint128("50"), // max 5% spread
-        adminAddr
-      )
-      .send(limit);
+    const { operatorAddr } = await deployFormulaAndOperator(adminAddr);
     const [, , tokenAddr] = await tokenSDK
       .deploy(
         adminAddr,
@@ -84,6 +69,8 @@ export const testDeployAndInitTokenWithZIL: TestingFunction = async (
     await token.state().log("allowances");
     await token.state().log("balances");
     await token.state().log("_balance");
+    //reset zil
+    zil.wallet.setDefault(admin.address);
   } catch (e) {
     throw e;
   }

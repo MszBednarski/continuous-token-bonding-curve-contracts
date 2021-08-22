@@ -513,8 +513,8 @@ transition InitZRC2(price: Uint128, connector_balance: Uint128, token_address: B
     to: _this_address;
     amount: connector_balance
   } in one_msg m;
-  send msg;
-  is_init := true
+  send msg
+  
 end
 
 
@@ -642,6 +642,7 @@ transition RecipientAcceptTransferFrom(initiator: ByStr20, sender: ByStr20, reci
   init <- is_init;
   match init with
   | False => 
+    is_init := true
   | True =>
     
     connector <- connector_token_type;
@@ -820,7 +821,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-22T16:42:36.444Z
+ * 2021-08-22T17:35:51.500Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => ({

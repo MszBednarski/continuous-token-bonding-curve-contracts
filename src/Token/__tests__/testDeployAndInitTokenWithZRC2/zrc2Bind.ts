@@ -5,12 +5,12 @@ import {
   getContract,
   newContract,
   getMinGasPrice,
-} from "../../../boost-zil/infra-manipulation";
+} from "../../../../boost-zil/infra-manipulation";
 import { BN, Long } from "@zilliqa-js/util";
 import { Transaction } from "@zilliqa-js/account";
 import { Contract } from "@zilliqa-js/contract";
-import * as T from "../../../boost-zil/signable";
-import * as BOOST from "../../../boost-zil";
+import * as T from "../../../../boost-zil/signable";
+import * as BOOST from "../../../../boost-zil";
 import { Zilliqa } from "@zilliqa-js/zilliqa";
 
 /**
@@ -42,111 +42,204 @@ export const code = `
 scilla_version 0
 
 
-import IntUtils BoolUtils
-library Operator
+
+
+import IntUtils
+library ZRC2
+
+let one_msg = 
+  fun (msg : Message) => 
+  let nil_msg = Nil {Message} in
+  Cons {Message} msg nil_msg
+
+let two_msgs =
+fun (msg1 : Message) =>
+fun (msg2 : Message) =>
+  let msgs_tmp = one_msg msg2 in
+  Cons {Message} msg1 msgs_tmp
+
+
 type Error =
-| NotAuthorized
-| NoStagedAdmin
-| SpreadTooBig
+| CodeIsSender
+| CodeInsufficientFunds
+| CodeInsufficientAllowance
 
 let make_error =
-fun (result: Error) =>
-let result_code =
-match result with
-| NotAuthorized => Int32 -1
-| NoStagedAdmin => Int32 -2
-| SpreadTooBig  => Int32 -3
-end
-in
-{ _exception: "Error"; code: result_code }
-
-let spread_denominator = Uint128 10000
-let zeroByStr20 = 0x0000000000000000000000000000000000000000
-let option_value = tfun 'A => fun( default: 'A ) => fun( input: Option 'A) =>
-  match input with
-  | Some v => v
-  | None => default end
-let option_bystr20_value = let f = @option_value ByStr20 in f zeroByStr20
+  fun (result : Error) =>
+    let result_code = 
+      match result with
+      | CodeIsSender              => Int32 -1
+      | CodeInsufficientFunds     => Int32 -2
+      | CodeInsufficientAllowance => Int32 -3
+      end
+    in
+    { _exception : "Error"; code : result_code }
+  
+let zero = Uint128 0
 
 
-contract Operator(
-    init_admin: ByStr20,
-    init_bancor_formula: ByStr20,
-    init_spread: Uint128,
-    max_spread: Uint128,
-    init_beneficiary: ByStr20
+type Unit =
+| Unit
+
+let get_val =
+  fun (some_val: Option Uint128) =>
+  match some_val with
+  | Some val => val
+  | None => zero
+  end
+
+
+
+
+
+contract ZRC2
+(
+  contract_owner: ByStr20,
+  name : String,
+  symbol: String,
+  decimals: Uint32,
+  init_supply : Uint128
 )
-with
-    let valid_spread = uint128_le init_spread max_spread in
-    let valid_max_spread = uint128_lt max_spread spread_denominator in
-    andb valid_spread valid_max_spread
-=>
-field admin: ByStr20 = init_admin
-field staging_admin: Option ByStr20 = None {ByStr20}
-field bancor_formula_contract: ByStr20 = init_bancor_formula
-field spread: Uint128 = init_spread
-field beneficiary: ByStr20 = init_beneficiary
 
-procedure ThrowError(err: Error)
-    e = make_error err;
-    throw e
+
+
+field total_supply : Uint128 = init_supply
+
+field balances: Map ByStr20 Uint128 
+  = let emp_map = Emp ByStr20 Uint128 in
+    builtin put emp_map contract_owner init_supply
+
+field allowances: Map ByStr20 (Map ByStr20 Uint128) 
+  = Emp ByStr20 (Map ByStr20 Uint128)
+
+
+
+
+
+procedure ThrowError(err : Error)
+  e = make_error err;
+  throw e
+end
+
+procedure IsNotSender(address: ByStr20)
+  is_sender = builtin eq _sender address;
+  match is_sender with
+  | True =>
+    err = CodeIsSender;
+    ThrowError err
+  | False =>
+  end
+end
+
+procedure AuthorizedMoveIfSufficientBalance(from: ByStr20, to: ByStr20, amount: Uint128)
+  o_from_bal <- balances[from];
+  bal = get_val o_from_bal;
+  can_do = uint128_le amount bal;
+  match can_do with
+  | True =>
+    
+    new_from_bal = builtin sub bal amount;
+    balances[from] := new_from_bal;
+    
+    get_to_bal <- balances[to];
+    new_to_bal = match get_to_bal with
+    | Some bal => builtin add bal amount
+    | None => amount
+    end;
+    balances[to] := new_to_bal
+  | False =>
+    
+    err = CodeInsufficientFunds;
+    ThrowError err
+  end
 end
 
 
 
-procedure AssertAddrEquality(ad1: ByStr20, ad2: ByStr20)
-    is_same = builtin eq ad1 ad2;
-    match is_same with
-    | False => e = NotAuthorized; ThrowError e
-    | True =>
-    end 
-end
-procedure IsAdmin()
-    tmp <- admin;
-    AssertAddrEquality tmp _sender
-end
-transition SetStagedAdmin(staged: ByStr20)
-    IsAdmin;
-    opt_staged = Some {ByStr20} staged;
-    staging_admin := opt_staged
-end
-transition ClaimStagedAdmin()
-    option_staged <- staging_admin;
-    staged = option_bystr20_value option_staged;
-    staged_is_sender = builtin eq _sender staged;
-    match staged_is_sender with
-    | False => e = NotAuthorized; ThrowError e
-    | True => admin := staged
-    end
+
+
+
+
+
+transition IncreaseAllowance(spender: ByStr20, amount: Uint128)
+  IsNotSender spender;
+  some_current_allowance <- allowances[_sender][spender];
+  current_allowance = get_val some_current_allowance;
+  new_allowance = builtin add current_allowance amount;
+  allowances[_sender][spender] := new_allowance;
+  e = {_eventname : "IncreasedAllowance"; token_owner : _sender; spender: spender; new_allowance : new_allowance};
+  event e
 end
 
 
 
-transition UpgradeFormula(new: ByStr20)
-    IsAdmin;
-    bancor_formula_contract := new 
+
+transition DecreaseAllowance(spender: ByStr20, amount: Uint128)
+  IsNotSender spender;
+  some_current_allowance <- allowances[_sender][spender];
+  current_allowance = get_val some_current_allowance;
+  new_allowance =
+    let amount_le_allowance = uint128_le amount current_allowance in
+      match amount_le_allowance with
+      | True => builtin sub current_allowance amount
+      | False => zero
+      end;
+  allowances[_sender][spender] := new_allowance;
+  e = {_eventname : "DecreasedAllowance"; token_owner : _sender; spender: spender; new_allowance : new_allowance};
+  event e
 end
 
-transition ChangeSpread(new: Uint128)
-    IsAdmin;
-    is_valid = uint128_le new max_spread;
-    match is_valid with
-    | False => e = SpreadTooBig; ThrowError e
-    | True =>
-        spread := new
-    end
+
+
+
+
+transition Transfer(to: ByStr20, amount: Uint128)
+  AuthorizedMoveIfSufficientBalance _sender to amount;
+  e = {_eventname : "TransferSuccess"; sender : _sender; recipient : to; amount : amount};
+  event e;
+  
+  msg_to_recipient = {_tag : "RecipientAcceptTransfer"; _recipient : to; _amount : zero; 
+                      sender : _sender; recipient : to; amount : amount};
+  msg_to_sender = {_tag : "TransferSuccessCallBack"; _recipient : _sender; _amount : zero; 
+                  sender : _sender; recipient : to; amount : amount};
+  msgs = two_msgs msg_to_recipient msg_to_sender;
+  send msgs
 end
 
-transition ChangeBeneficiary(new: ByStr20)
-    IsAdmin;
-    beneficiary := new
+
+
+
+
+
+transition TransferFrom(from: ByStr20, to: ByStr20, amount: Uint128)
+  o_spender_allowed <- allowances[from][_sender];
+  allowed = get_val o_spender_allowed;
+  can_do = uint128_le amount allowed;
+  match can_do with
+  | True =>
+    AuthorizedMoveIfSufficientBalance from to amount;
+    e = {_eventname : "TransferFromSuccess"; initiator : _sender; sender : from; recipient : to; amount : amount};
+    event e;
+    new_allowed = builtin sub allowed amount;
+    allowances[from][_sender] := new_allowed;
+    
+    msg_to_recipient = {_tag: "RecipientAcceptTransferFrom"; _recipient : to; _amount: zero; 
+                        initiator: _sender; sender : from; recipient: to; amount: amount};
+    msg_to_sender = {_tag: "TransferFromSuccessCallBack"; _recipient: _sender; _amount: zero; 
+                    initiator: _sender; sender: from; recipient: to; amount: amount};
+    msgs = two_msgs msg_to_recipient msg_to_sender;
+    send msgs
+  | False =>
+    err = CodeInsufficientAllowance;
+    ThrowError err
+  end
 end`;
 export const deploy = (
-  __init_admin: T.ByStr20,
-  __init_bancor_formula: T.ByStr20,
-  __init_spread: T.Uint128,
-  __max_spread: T.Uint128,
-  __init_beneficiary: T.ByStr20
+  __contract_owner: T.ByStr20,
+  __name: T.ScillaString,
+  __symbol: T.ScillaString,
+  __decimals: T.Uint32,
+  __init_supply: T.Uint128
 ) => {
   const initData = [
     {
@@ -156,28 +249,28 @@ export const deploy = (
     },
     {
       type: `ByStr20`,
-      vname: `init_admin`,
-      value: __init_admin.toSend(),
+      vname: `contract_owner`,
+      value: __contract_owner.toSend(),
     },
     {
-      type: `ByStr20`,
-      vname: `init_bancor_formula`,
-      value: __init_bancor_formula.toSend(),
+      type: `String`,
+      vname: `name`,
+      value: __name.toSend(),
+    },
+    {
+      type: `String`,
+      vname: `symbol`,
+      value: __symbol.toSend(),
+    },
+    {
+      type: `Uint32`,
+      vname: `decimals`,
+      value: __decimals.toSend(),
     },
     {
       type: `Uint128`,
-      vname: `init_spread`,
-      value: __init_spread.toSend(),
-    },
-    {
-      type: `Uint128`,
-      vname: `max_spread`,
-      value: __max_spread.toSend(),
-    },
-    {
-      type: `ByStr20`,
-      vname: `init_beneficiary`,
-      value: __init_beneficiary.toSend(),
+      vname: `init_supply`,
+      value: __init_supply.toSend(),
     },
   ];
   return {
@@ -262,32 +355,19 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-22T17:35:10.774Z
+ * 2021-08-22T16:54:08.771Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => ({
     state: () => ({
-      get: async function (
-        field:
-          | "admin"
-          | "staging_admin"
-          | "bancor_formula_contract"
-          | "spread"
-          | "beneficiary"
-      ) {
+      get: async function (field: "total_supply" | "balances" | "allowances") {
         const zil = getZil();
         return (
           await zil.blockchain.getSmartContractSubState(a.toSend(), field)
         ).result;
       },
       log: async function (
-        field:
-          | "admin"
-          | "staging_admin"
-          | "bancor_formula_contract"
-          | "spread"
-          | "beneficiary"
-          | "_balance"
+        field: "total_supply" | "balances" | "allowances" | "_balance"
       ) {
         const zil = getZil();
         if (field == "_balance") {
@@ -301,145 +381,21 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
       },
     }),
     run: (gasLimit: Long) => ({
-      SetStagedAdmin: (__staged: T.ByStr20) => {
+      IncreaseAllowance: (__spender: T.ByStr20, __amount: T.Uint128) => {
         const transactionData = {
           contractSignature,
           contractAddress: a.toSend(),
-          contractTransitionName: `SetStagedAdmin`,
+          contractTransitionName: `IncreaseAllowance`,
           data: [
             {
               type: `ByStr20`,
-              vname: `staged`,
-              value: __staged.toSend(),
+              vname: `spender`,
+              value: __spender.toSend(),
             },
-          ],
-          amount: new BN(0).toString(),
-        };
-        return {
-          /**
-           * get data needed to perform this transaction
-           * */
-          toJSON: () => transactionData,
-          /**
-           * send the transaction to the blockchain
-           * */
-          send: async () => {
-            const zil = getZil();
-            const gasPrice = await getMinGasPrice();
-            const contract = getContract(zil, a.toSend());
-
-            const tx = await contract.call(
-              transactionData.contractTransitionName,
-              transactionData.data,
-              {
-                version: getVersion(),
-                amount: new BN(transactionData.amount),
-                gasPrice,
-                gasLimit,
-              },
-              33,
-              1000
-            );
-            log.txLink(tx, "SetStagedAdmin");
-            return tx;
-          },
-        };
-      },
-
-      ClaimStagedAdmin: () => {
-        const transactionData = {
-          contractSignature,
-          contractAddress: a.toSend(),
-          contractTransitionName: `ClaimStagedAdmin`,
-          data: [],
-          amount: new BN(0).toString(),
-        };
-        return {
-          /**
-           * get data needed to perform this transaction
-           * */
-          toJSON: () => transactionData,
-          /**
-           * send the transaction to the blockchain
-           * */
-          send: async () => {
-            const zil = getZil();
-            const gasPrice = await getMinGasPrice();
-            const contract = getContract(zil, a.toSend());
-
-            const tx = await contract.call(
-              transactionData.contractTransitionName,
-              transactionData.data,
-              {
-                version: getVersion(),
-                amount: new BN(transactionData.amount),
-                gasPrice,
-                gasLimit,
-              },
-              33,
-              1000
-            );
-            log.txLink(tx, "ClaimStagedAdmin");
-            return tx;
-          },
-        };
-      },
-
-      UpgradeFormula: (__new: T.ByStr20) => {
-        const transactionData = {
-          contractSignature,
-          contractAddress: a.toSend(),
-          contractTransitionName: `UpgradeFormula`,
-          data: [
-            {
-              type: `ByStr20`,
-              vname: `new`,
-              value: __new.toSend(),
-            },
-          ],
-          amount: new BN(0).toString(),
-        };
-        return {
-          /**
-           * get data needed to perform this transaction
-           * */
-          toJSON: () => transactionData,
-          /**
-           * send the transaction to the blockchain
-           * */
-          send: async () => {
-            const zil = getZil();
-            const gasPrice = await getMinGasPrice();
-            const contract = getContract(zil, a.toSend());
-
-            const tx = await contract.call(
-              transactionData.contractTransitionName,
-              transactionData.data,
-              {
-                version: getVersion(),
-                amount: new BN(transactionData.amount),
-                gasPrice,
-                gasLimit,
-              },
-              33,
-              1000
-            );
-            log.txLink(tx, "UpgradeFormula");
-            return tx;
-          },
-        };
-      },
-
-      ChangeSpread: (__new: T.Uint128) => {
-        const transactionData = {
-          contractSignature,
-          contractAddress: a.toSend(),
-          contractTransitionName: `ChangeSpread`,
-          data: [
             {
               type: `Uint128`,
-              vname: `new`,
-              value: __new.toSend(),
+              vname: `amount`,
+              value: __amount.toSend(),
             },
           ],
           amount: new BN(0).toString(),
@@ -469,22 +425,27 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               33,
               1000
             );
-            log.txLink(tx, "ChangeSpread");
+            log.txLink(tx, "IncreaseAllowance");
             return tx;
           },
         };
       },
 
-      ChangeBeneficiary: (__new: T.ByStr20) => {
+      DecreaseAllowance: (__spender: T.ByStr20, __amount: T.Uint128) => {
         const transactionData = {
           contractSignature,
           contractAddress: a.toSend(),
-          contractTransitionName: `ChangeBeneficiary`,
+          contractTransitionName: `DecreaseAllowance`,
           data: [
             {
               type: `ByStr20`,
-              vname: `new`,
-              value: __new.toSend(),
+              vname: `spender`,
+              value: __spender.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `amount`,
+              value: __amount.toSend(),
             },
           ],
           amount: new BN(0).toString(),
@@ -514,7 +475,116 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
               33,
               1000
             );
-            log.txLink(tx, "ChangeBeneficiary");
+            log.txLink(tx, "DecreaseAllowance");
+            return tx;
+          },
+        };
+      },
+
+      Transfer: (__to: T.ByStr20, __amount: T.Uint128) => {
+        const transactionData = {
+          contractSignature,
+          contractAddress: a.toSend(),
+          contractTransitionName: `Transfer`,
+          data: [
+            {
+              type: `ByStr20`,
+              vname: `to`,
+              value: __to.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `amount`,
+              value: __amount.toSend(),
+            },
+          ],
+          amount: new BN(0).toString(),
+        };
+        return {
+          /**
+           * get data needed to perform this transaction
+           * */
+          toJSON: () => transactionData,
+          /**
+           * send the transaction to the blockchain
+           * */
+          send: async () => {
+            const zil = getZil();
+            const gasPrice = await getMinGasPrice();
+            const contract = getContract(zil, a.toSend());
+
+            const tx = await contract.call(
+              transactionData.contractTransitionName,
+              transactionData.data,
+              {
+                version: getVersion(),
+                amount: new BN(transactionData.amount),
+                gasPrice,
+                gasLimit,
+              },
+              33,
+              1000
+            );
+            log.txLink(tx, "Transfer");
+            return tx;
+          },
+        };
+      },
+
+      TransferFrom: (
+        __from: T.ByStr20,
+        __to: T.ByStr20,
+        __amount: T.Uint128
+      ) => {
+        const transactionData = {
+          contractSignature,
+          contractAddress: a.toSend(),
+          contractTransitionName: `TransferFrom`,
+          data: [
+            {
+              type: `ByStr20`,
+              vname: `from`,
+              value: __from.toSend(),
+            },
+            {
+              type: `ByStr20`,
+              vname: `to`,
+              value: __to.toSend(),
+            },
+            {
+              type: `Uint128`,
+              vname: `amount`,
+              value: __amount.toSend(),
+            },
+          ],
+          amount: new BN(0).toString(),
+        };
+        return {
+          /**
+           * get data needed to perform this transaction
+           * */
+          toJSON: () => transactionData,
+          /**
+           * send the transaction to the blockchain
+           * */
+          send: async () => {
+            const zil = getZil();
+            const gasPrice = await getMinGasPrice();
+            const contract = getContract(zil, a.toSend());
+
+            const tx = await contract.call(
+              transactionData.contractTransitionName,
+              transactionData.data,
+              {
+                version: getVersion(),
+                amount: new BN(transactionData.amount),
+                gasPrice,
+                gasLimit,
+              },
+              33,
+              1000
+            );
+            log.txLink(tx, "TransferFrom");
             return tx;
           },
         };

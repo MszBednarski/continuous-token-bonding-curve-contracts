@@ -1,7 +1,10 @@
 {
   "scripts": {
     "check": "nodemon",
-    "test": "ts-node ./src/BancorFormula/__tests__/run.ts"
+    "test": "npm run test:bancor && npm run test:operator &&npm run test:token",
+    "test:token": "ts-node ./src/Token/__tests__/run.ts",
+    "test:bancor": "ts-node ./src/BancorFormula/__tests__/run.ts",
+    "test:operator": "ts-node ./src/Operator/__tests__/run.ts"
   },
   "dependencies": {
     "@zilliqa-js/zilliqa": "^3.0.0",

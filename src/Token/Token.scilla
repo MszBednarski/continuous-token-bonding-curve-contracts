@@ -493,8 +493,8 @@ transition InitZRC2(price: Uint128, connector_balance: Uint128, token_address: B
     to: _this_address;
     amount: connector_balance
   } in one_msg m;
-  send msg;
-  is_init := true
+  send msg
+  (* is_init is set in the callback of the transfer from! *)
 end
 
 (* @dev: Increase the allowance of an approved_spender over the caller tokens. Only token_owner allowed to invoke.   *)
@@ -631,7 +631,8 @@ end
 transition RecipientAcceptTransferFrom(initiator: ByStr20, sender: ByStr20, recipient: ByStr20, amount: Uint128) 
   init <- is_init;
   match init with
-  | False => (* special case only available during contract init zrc2 sequence, do nothing *)
+  | False => (* special case only available during contract init zrc2 sequence, set the init status to True *)
+    is_init := true
   | True =>
     (* general case act as buy endpoint *)
     connector <- connector_token_type;
