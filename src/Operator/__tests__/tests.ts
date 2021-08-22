@@ -14,7 +14,7 @@ export const testOperator: TestingFunction = async (code, ss) => {
     const operator =
       sdk.hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855(
         fillerAddr
-      )(limit);
+      ).run(limit);
     const testing = testRunner(ss)("Operator");
     const run = testing.runner;
     const make = testMaker(code)("1")(

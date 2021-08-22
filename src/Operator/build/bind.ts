@@ -262,11 +262,40 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-22T12:43:01.224Z
+ * 2021-08-22T13:24:08.404Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
-  (a: T.ByStr20) => (gasLimit: Long) => {
-    return {
+  (a: T.ByStr20) => ({
+    state: () => ({
+      get: async function (
+        field:
+          | "admin"
+          | "staging_admin"
+          | "bancor_formula_contract"
+          | "spread"
+          | "beneficiary"
+      ) {
+        const zil = getZil();
+        return (
+          await zil.blockchain.getSmartContractSubState(a.toSend(), field)
+        ).result;
+      },
+      log: async function (
+        field:
+          | "admin"
+          | "staging_admin"
+          | "bancor_formula_contract"
+          | "spread"
+          | "beneficiary"
+      ) {
+        const zil = getZil();
+        console.log(
+          (await zil.blockchain.getSmartContractSubState(a.toSend(), field))
+            .result
+        );
+      },
+    }),
+    run: (gasLimit: Long) => ({
       SetStagedAdmin: (__staged: T.ByStr20) => {
         const transactionData = {
           contractSignature,
@@ -485,5 +514,5 @@ export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
           },
         };
       },
-    };
-  };
+    }),
+  });
