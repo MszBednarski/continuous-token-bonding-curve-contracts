@@ -1,15 +1,10 @@
 import { scillaServer } from "../../../scillaTest";
-import { resolve } from "path";
-import { readFileSync } from "fs";
-
-
+import { testOperator } from "./tests";
+import { code } from "../build/bind";
 
 (async () => {
   try {
-    const code = readFileSync(
-      resolve(__dirname, "../Operator.scilla"),
-      "utf-8"
-    );
+    await testOperator(code, scillaServer);
   } catch (e) {
     console.error(e);
   }
