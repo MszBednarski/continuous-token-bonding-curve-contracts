@@ -1,1 +1,0 @@
-npx ts-node ./build.ts -dir $1 $2
