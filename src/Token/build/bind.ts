@@ -36,18 +36,7 @@ export type TransactionData = {
   data: any[],
 };
 
-export async function deploy(
-  gasLimit: Long,
-  __contract_owner: T.ByStr20,
-  __name: T.ScillaString,
-  __symbol: T.ScillaString,
-  __decimals: T.Uint32,
-  __init_supply: T.Uint128,
-  __operator_contract: T.ByStr20
-): Promise<[Transaction, Contract, T.ByStr20]> {
-  const zil = getZil();
-  const gasPrice = await getMinGasPrice();
-  const code = `
+export const code = `
 (* sourceCodeHash=0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *)
 (* sourceCodeHashKey=hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *)
 scilla_version 0
@@ -692,7 +681,15 @@ end
 transition CalculateSaleReturnCallback(result: Uint128)
   tmp_bancor_formula_result := result
 end`;
-  const contract = newContract(zil, code, [
+export const deploy = (
+  __contract_owner: T.ByStr20,
+  __name: T.ScillaString,
+  __symbol: T.ScillaString,
+  __decimals: T.Uint32,
+  __init_supply: T.Uint128,
+  __operator_contract: T.ByStr20
+) => {
+  const initData = [
     {
       type: `Uint32`,
       vname: `_scilla_version`,
@@ -728,25 +725,36 @@ end`;
       vname: `operator_contract`,
       value: __operator_contract.toSend(),
     },
-  ]);
-  const [tx, con] = await contract.deploy(
-    {
-      version: getVersion(),
-      gasPrice,
-      gasLimit,
+  ];
+  return {
+    initToJSON: () => initData,
+    send: async function (
+      gasLimit: Long
+    ): Promise<[Transaction, Contract, T.ByStr20]> {
+      const zil = getZil();
+      const gasPrice = await getMinGasPrice();
+
+      const contract = newContract(zil, code, initData);
+      const [tx, con] = await contract.deploy(
+        {
+          version: getVersion(),
+          gasPrice,
+          gasLimit,
+        },
+        33,
+        1000
+      );
+      log.txLink(tx, "Deploy");
+      if (!con.address) {
+        if (con.error) {
+          throw new Error(JSON.stringify(con.error, null, 2));
+        }
+        throw new Error("Contract failed to deploy");
+      }
+      return [tx, con, new T.ByStr20(con.address)];
     },
-    33,
-    1000
-  );
-  log.txLink(tx, "Deploy");
-  if (!con.address) {
-    if (con.error) {
-      throw new Error(JSON.stringify(con.error, null, 2));
-    }
-    throw new Error("Contract failed to deploy");
-  }
-  return [tx, con, new T.ByStr20(con.address)];
-}
+  };
+};
 
 /**
  * this string is the signature of the hash of the source code
@@ -800,7 +808,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-21T18:47:31.245Z
+ * 2021-08-22T12:43:09.769Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {

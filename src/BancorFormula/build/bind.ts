@@ -844,7 +844,9 @@ export const deploy = () => {
   ];
   return {
     initToJSON: () => initData,
-    send: async (gasLimit: Long) => {
+    send: async function (
+      gasLimit: Long
+    ): Promise<[Transaction, Contract, T.ByStr20]> {
       const zil = getZil();
       const gasPrice = await getMinGasPrice();
 
@@ -922,7 +924,7 @@ export async function safeFromJSONTransaction(
  * interface for scilla contract with source code hash:
  * 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
  * generated on:
- * 2021-08-21T19:32:18.158Z
+ * 2021-08-22T12:42:45.909Z
  */
 export const hash_0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 =
   (a: T.ByStr20) => (gasLimit: Long) => {
